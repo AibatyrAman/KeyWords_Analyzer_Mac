@@ -16,6 +16,7 @@ import datetime
 import io
 import subprocess
 import platform
+import unicodedata
 
 # API anahtarı direkt kod içinde
 open_ai_key = 
