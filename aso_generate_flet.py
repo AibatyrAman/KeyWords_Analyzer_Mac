@@ -58,32 +58,32 @@ class Df_Get():
                 df_temp = pd.read_csv(os.path.join(klasor_yolu, dosya))
                 print(f"DEBUG: {dosya} okundu, şekli: {df_temp.shape}")
                 
-                # Dosya adından Title oluştur
+                # Dosya adından Category oluştur
                 # "trending-keywords-US-Business.csv" -> "Business"
                 # "trending-keywords-US-Food & Drink.csv" -> "Food & Drink"
                 dosya_adi = dosya.replace('.csv', '')
                 parts = dosya_adi.split('-')
                 if len(parts) >= 4 and parts[0] == 'trending' and parts[1] == 'keywords':
                     # US kısmından sonraki tüm kısımları birleştir
-                    title = '-'.join(parts[3:])  # US kısmından sonrasını al
+                    category = '-'.join(parts[3:])  # US kısmından sonrasını al
                 else:
                     # Fallback: dosya adının son kısmını al
-                    title = dosya_adi.split('-')[-1] if '-' in dosya_adi else dosya_adi
+                    category = dosya_adi.split('-')[-1] if '-' in dosya_adi else dosya_adi
                 
-                # Title sütununu DataFrame'e ekle
-                df_temp['Title'] = title
-                print(f"DEBUG: {dosya} için Title: {title}")
+                # Category sütununu DataFrame'e ekle
+                df_temp['Category'] = category
+                print(f"DEBUG: {dosya} için Category: {category}")
                 
                 dataframes.append(df_temp)
 
             # Bütün CSV'ler birleştiriliyor
             birlesik_df = pd.concat(dataframes, ignore_index=True)
             
-            # Title sütununu en başa taşı
+            # Category sütununu en başa taşı
             cols = birlesik_df.columns.tolist()
-            if 'Title' in cols:
-                cols.remove('Title')
-                cols.insert(0, 'Title')
+            if 'Category' in cols:
+                cols.remove('Category')
+                cols.insert(0, 'Category')
                 birlesik_df = birlesik_df[cols]
             
             # Öncelikle, Difficulty sütununa göre azalan sırayla sıralıyoruz
@@ -107,9 +107,9 @@ class Df_Get():
         df_filtered["Volume"] = df_filtered["Volume"].astype(int)
         df_filtered.sort_values(by="Volume", ascending=False, inplace=True)
         
-        # Title sütunu varsa koru, yoksa sadece temel sütunları al
-        if 'Title' in df_filtered.columns:
-            df_result = df_filtered[["Title", "Keyword", "Volume", "Difficulty"]].dropna()
+        # Category sütunu varsa koru, yoksa sadece temel sütunları al
+        if 'Category' in df_filtered.columns:
+            df_result = df_filtered[["Category", "Keyword", "Volume", "Difficulty"]].dropna()
         else:
             df_result = df_filtered[["Keyword", "Volume", "Difficulty"]].dropna()
             
@@ -123,15 +123,15 @@ class Df_Get():
         kelime_sayaci = Counter(kelimeler)
         df_kf = pd.DataFrame(kelime_sayaci.items(), columns=["Kelime", "Frekans"]).sort_values(by="Frekans", ascending=False)
         
-        # Eğer orijinal df'de Title sütunu varsa, frekans tablosuna da ekle
-        if 'Title' in df.columns and not df.empty:
-            # En yaygın Title'ı kullan (basit yaklaşım)
-            most_common_title = df['Title'].mode().iloc[0] if len(df['Title'].mode()) > 0 else "Frequency"
-            df_kf['Title'] = most_common_title
-            # Title sütununu en başa taşı
+        # Eğer orijinal df'de Category sütunu varsa, frekans tablosuna da ekle
+        if 'Category' in df.columns and not df.empty:
+            # En yaygın Category'yi kullan (basit yaklaşım)
+            most_common_category = df['Category'].mode().iloc[0] if len(df['Category'].mode()) > 0 else "Frequency"
+            df_kf['Category'] = most_common_category
+            # Category sütununu en başa taşı
             cols = df_kf.columns.tolist()
-            cols.remove('Title')
-            cols.insert(0, 'Title')
+            cols.remove('Category')
+            cols.insert(0, 'Category')
             df_kf = df_kf[cols]
         
         print("DEBUG: Frekans DataFrame'i:\n", df_kf)
@@ -215,13 +215,13 @@ Example:
             # Filtrelenmiş DataFrame'i oluştur
             filtered_df = df_kf[mask].copy()
             
-            # Title sütunu varsa koru
-            if 'Title' in df_kf.columns:
-                # Title sütununu en başta tut
+            # Category sütunu varsa koru
+            if 'Category' in df_kf.columns:
+                # Category sütununu en başta tut
                 cols = filtered_df.columns.tolist()
-                if 'Title' in cols and cols[0] != 'Title':
-                    cols.remove('Title')
-                    cols.insert(0, 'Title')
+                if 'Category' in cols and cols[0] != 'Category':
+                    cols.remove('Category')
+                    cols.insert(0, 'Category')
                     filtered_df = filtered_df[cols]
             
             print(f"DEBUG: Filtrelenmiş kelime sayısı: {len(filtered_df)}")
@@ -241,16 +241,16 @@ Example:
                 print("\033[31mHATA: Boş veya geçersiz DataFrame\033[0m")
                 return pd.DataFrame(columns=['Kelime', 'Frekans'])
 
-            # Title sütunu varsa koru
-            if 'Title' in df.columns:
-                # Önce Title'ı al
-                title_value = df['Title'].iloc[0] if not df.empty else "Aggregated"
+            # Category sütunu varsa koru
+            if 'Category' in df.columns:
+                # Önce Category'yi al
+                category_value = df['Category'].iloc[0] if not df.empty else "Aggregated"
                 # Kelime bazında grupla
                 aggregated_df = df.groupby("Kelime", as_index=False)["Frekans"].sum()
-                # Title'ı geri ekle
-                aggregated_df['Title'] = title_value
-                # Title'ı en başa taşı
-                cols = ['Title', 'Kelime', 'Frekans']
+                # Category'yi geri ekle
+                aggregated_df['Category'] = category_value
+                # Category'yi en başa taşı
+                cols = ['Category', 'Kelime', 'Frekans']
                 aggregated_df = aggregated_df[cols]
             else:
                 aggregated_df = df.groupby("Kelime", as_index=False)["Frekans"].sum()
@@ -337,10 +337,10 @@ Example:
                         'Frekans': kf_df['Frekans']
                     })
                     
-                    # Title sütunu varsa koru
-                    if 'Title' in kf_df.columns:
-                        title_value = kf_df['Title'].iloc[0] if not kf_df.empty else "Suffixes"
-                        result_df['Title'] = title_value
+                    # Category sütunu varsa koru
+                    if 'Category' in kf_df.columns:
+                        category_value = kf_df['Category'].iloc[0] if not kf_df.empty else "Suffixes"
+                        result_df['Category'] = category_value
                     
                     result_df = Df_Get.aggregate_frequencies(result_df)
                     result_df = result_df.sort_values(by='Frekans', ascending=False)
@@ -580,24 +580,14 @@ class ASOApp:
         
         # Veri storage
         self.folder_path = ""
-        self.manual_folder_path = ""
         self.difficulty_limit = 20
         self.growth_limit = 0
         self.selected_country = "United States"
-        self.selected_category = "Tümü"
-        self.selected_country_filter = "Tümü"
         self.app_name = ""
         self.open_ai_key = open_ai_key
         
         # DataFrame'ler
         self.merged_noduplicate_df = None
-        self.kvd_df = None
-        self.kelime_frekans_df = None
-        self.without_branded_df = None
-        self.without_suffixes_df = None
-        self.gpt_title_subtitle_df = None
-        self.matching_keywords_df_ts = None
-        self.matching_keywords_df = None
         self.current_table = None
         
         self.setup_ui()
@@ -704,43 +694,7 @@ class ASOApp:
             on_click=self.open_native_folder_picker
         )
         
-        # Manuel klasör yolu girişi için TextField ekle
-        self.manual_folder_input = ft.TextField(
-            label="Manuel Klasör Yolu",
-            hint_text="Örn: /Users/username/Downloads/CSV_Files",
-            value="",
-            on_change=self.on_manual_folder_changed,
-            expand=True,
-            height=45
-        )
-        
-        # Manuel klasör yolu butonu
-        self.manual_folder_button = ft.ElevatedButton(
-            "📁 Manuel Klasör Yolu Kullan",
-            on_click=self.use_manual_folder,
-            style=ft.ButtonStyle(
-                color=Colors.WHITE,
-                bgcolor=Colors.ORANGE_600,
-                elevation=2,
-                shape=ft.RoundedRectangleBorder(radius=8)
-            ),
-            height=45,
-            expand=True
-        )
-        
-        # Test verileri butonu
-        self.test_data_button = ft.ElevatedButton(
-            "🧪 Test Verilerini Kullan",
-            on_click=self.use_test_data,
-            style=ft.ButtonStyle(
-                color=Colors.WHITE,
-                bgcolor=Colors.PURPLE_600,
-                elevation=2,
-                shape=ft.RoundedRectangleBorder(radius=8)
-            ),
-            height=45,
-            expand=True
-        )
+
         
 
         
@@ -761,6 +715,7 @@ class ASOApp:
             expand=True
         )
         
+        
         # Growth filter
         self.growth_input = ft.TextField(
             label="Growth Sınırı",
@@ -770,38 +725,7 @@ class ASOApp:
             expand=True
         )
         
-        # Category filter dropdown
-        self.category_dropdown = ft.Dropdown(
-            label="Kategori Filtresi",
-            value="Tümü",
-            options=[
-                ft.dropdown.Option("Tümü"),
-                ft.dropdown.Option("Photo & Video"),
-                ft.dropdown.Option("Productivity"),
-                ft.dropdown.Option("Music"),
-                ft.dropdown.Option("Health & Fitness")
-            ],
-            on_change=self.on_category_changed,
-            expand=True
-        )
-        
-        # Country filter dropdown
-        self.country_filter_dropdown = ft.Dropdown(
-            label="Ülke Filtresi",
-            value="Tümü",
-            options=[
-                ft.dropdown.Option("Tümü"),
-                ft.dropdown.Option("United States"),
-                ft.dropdown.Option("United Kingdom"),
-                ft.dropdown.Option("Germany"),
-                ft.dropdown.Option("France"),
-                ft.dropdown.Option("Japan"),
-                ft.dropdown.Option("Canada"),
-                ft.dropdown.Option("Australia")
-            ],
-            on_change=self.on_country_filter_changed,
-            expand=True
-        )
+
         
         # Apply filters button
         self.apply_filters_button = ft.ElevatedButton(
@@ -828,43 +752,15 @@ class ASOApp:
         # Responsive Buttons
         buttons = [
             ft.ElevatedButton(
-                "Birleştirilmiş Ana Tablo",
+                "Birleştirilmiş Ana Tablo (Filtreli)",
                 on_click=self.show_merged_table,
                 style=button_style,
                 height=45,
                 expand=True  # Responsive genişlik
             ),
             ft.ElevatedButton(
-                "Keyword Volume Difficulty",
-                on_click=self.show_kvd_table,
-                style=button_style,
-                height=45,
-                expand=True  # Responsive genişlik
-            ),
-            ft.ElevatedButton(
-                "Kelime Frekansı",
-                on_click=self.show_frequency_table,
-                style=button_style,
-                height=45,
-                expand=True  # Responsive genişlik
-            ),
-            ft.ElevatedButton(
-                "Branded Kelimeler Filtrelenmiş",
-                on_click=self.show_branded_filtered_table,
-                style=button_style,
-                height=45,
-                expand=True  # Responsive genişlik
-            ),
-            ft.ElevatedButton(
-                "Eklerden Ayrılmış Kelimeler",
-                on_click=self.show_suffixes_removed_table,
-                style=button_style,
-                height=45,
-                expand=True  # Responsive genişlik
-            ),
-            ft.ElevatedButton(
-                "Title Subtitle Analiz",
-                on_click=self.show_title_subtitle_table,
+                "Birleştirilmiş Ana Tablo (Tümü)",
+                on_click=self.show_merged_table_all,
                 style=button_style,
                 height=45,
                 expand=True  # Responsive genişlik
@@ -873,19 +769,6 @@ class ASOApp:
         
         return ft.Column([
             self.folder_display,
-            ft.Divider(height=10),
-            ft.Text(
-                "🔧 Alternatif Yöntemler",
-                size=14,
-                weight=FontWeight.BOLD,
-                color=Colors.BLUE_700
-            ),
-            ft.Divider(height=5),
-            self.manual_folder_input,
-            ft.Divider(height=5),
-            self.manual_folder_button,
-            ft.Divider(height=5),
-            self.test_data_button,
             ft.Divider(height=20),
             ft.ElevatedButton(
                 "Yükle",
@@ -910,13 +793,7 @@ class ASOApp:
                         ft.Container(width=10),
                         self.growth_input
                     ]),
-                    ft.Divider(height=10),
-                    ft.Row([
-                        self.category_dropdown,
-                        ft.Container(width=10),
-                        self.country_filter_dropdown
-                    ]),
-                    ft.Divider(height=10),
+                                        ft.Divider(height=10),
                     self.apply_filters_button,
                     ft.Container(height=10)  # Bottom padding
                 ], spacing=5, scroll=ScrollMode.ALWAYS),
@@ -1058,115 +935,7 @@ class ASOApp:
             self.folder_display.border = ft.border.all(2, Colors.GREEN_200)
             self.page.update()
     
-    def on_manual_folder_changed(self, e):
-        """Manuel klasör yolu değiştiğinde çağrılır"""
-        self.manual_folder_path = e.control.value
-    
-    def use_manual_folder(self, e):
-        """Manuel klasör yolunu kullan"""
-        if not self.manual_folder_input.value:
-            self.show_error("Lütfen bir klasör yolu girin!")
-            return
-        
-        folder_path = self.manual_folder_input.value.strip()
-        
-        # Klasör yolunun geçerli olup olmadığını kontrol et
-        if not os.path.exists(folder_path):
-            self.show_error(f"Klasör bulunamadı: {folder_path}")
-            return
-        
-        if not os.path.isdir(folder_path):
-            self.show_error(f"Bu bir klasör değil: {folder_path}")
-            return
-        
-        # CSV dosyalarının varlığını kontrol et
-        csv_files = [f for f in os.listdir(folder_path) if f.endswith('.csv')]
-        if not csv_files:
-            self.show_error(f"Klasörde CSV dosyası bulunamadı: {folder_path}")
-            return
-        
-        # Klasör yolunu ayarla
-        self.folder_path = folder_path
-        
-        # UI'yi güncelle
-        self.folder_display.content = ft.Column([
-            ft.Icon(Icons.FOLDER, size=40, color=Colors.GREEN_600),
-            ft.Text(
-                "Manuel Klasör Seçildi",
-                size=16,
-                text_align=ft.TextAlign.CENTER,
-                color=Colors.GREEN_600
-            ),
-            ft.Text(
-                os.path.basename(folder_path),
-                size=12,
-                text_align=ft.TextAlign.CENTER,
-                color=Colors.GREY_600
-            ),
-            ft.Text(
-                f"{len(csv_files)} CSV dosyası bulundu",
-                size=10,
-                text_align=ft.TextAlign.CENTER,
-                color=Colors.GREEN_600
-            )
-        ], alignment=ft.MainAxisAlignment.CENTER)
-        self.folder_display.bgcolor = Colors.GREEN_50
-        self.folder_display.border = ft.border.all(2, Colors.GREEN_200)
-        
-        self.show_success(f"Klasör seçildi: {os.path.basename(folder_path)} ({len(csv_files)} CSV dosyası)")
-        self.page.update()
-    
-    def use_test_data(self, e):
-        """Test verilerini kullan"""
-        try:
-            # Mevcut dizindeki sample_CSV_archive klasörünü kullan
-            current_dir = os.getcwd()
-            test_folder = os.path.join(current_dir, "sample_CSV_archive")
-            
-            if not os.path.exists(test_folder):
-                # Eğer sample_CSV_archive yoksa, mevcut dizini kullan
-                test_folder = current_dir
-            
-            # CSV dosyalarını kontrol et
-            csv_files = [f for f in os.listdir(test_folder) if f.endswith('.csv')]
-            
-            if not csv_files:
-                self.show_error("Test verileri bulunamadı! Lütfen CSV dosyalarınızı proje klasörüne koyun.")
-                return
-            
-            # Klasör yolunu ayarla
-            self.folder_path = test_folder
-            
-            # UI'yi güncelle
-            self.folder_display.content = ft.Column([
-                ft.Icon(Icons.SCIENCE, size=40, color=Colors.PURPLE_600),
-                ft.Text(
-                    "Test Verileri Kullanılıyor",
-                    size=16,
-                    text_align=ft.TextAlign.CENTER,
-                    color=Colors.PURPLE_600
-                ),
-                ft.Text(
-                    os.path.basename(test_folder),
-                    size=12,
-                    text_align=ft.TextAlign.CENTER,
-                    color=Colors.GREY_600
-                ),
-                ft.Text(
-                    f"{len(csv_files)} test CSV dosyası",
-                    size=10,
-                    text_align=ft.TextAlign.CENTER,
-                    color=Colors.PURPLE_600
-                )
-            ], alignment=ft.MainAxisAlignment.CENTER)
-            self.folder_display.bgcolor = Colors.PURPLE_50
-            self.folder_display.border = ft.border.all(2, Colors.PURPLE_200)
-            
-            self.show_success(f"Test verileri yüklendi: {len(csv_files)} CSV dosyası")
-            self.page.update()
-            
-        except Exception as ex:
-            self.show_error(f"Test verileri yükleme hatası: {str(ex)}")
+
     
     def open_native_folder_picker(self, e):
         """macOS native klasör seçici dialogunu açar"""
@@ -1254,6 +1023,13 @@ class ASOApp:
     def on_difficulty_filter_changed(self, e):
         try:
             self.difficulty_limit = float(e.control.value)
+            
+            # Eğer şu anda birleştirilmiş tablo gösteriliyorsa, otomatik güncelle
+            if (self.current_table is not None and 
+                hasattr(self, 'merged_noduplicate_df') and 
+                self.merged_noduplicate_df is not None and
+                len(self.current_table) == len(self.merged_noduplicate_df)):
+                self.show_merged_table(None)
         except ValueError:
             self.difficulty_limit = 20
     
@@ -1263,14 +1039,10 @@ class ASOApp:
         except ValueError:
             self.growth_limit = 0
     
-    def on_category_changed(self, e):
-        self.selected_category = e.control.value
-    
-    def on_country_filter_changed(self, e):
-        self.selected_country_filter = e.control.value
+
     
     def apply_filters(self, e):
-        """Filtreleri uygular ve mevcut tabloyu günceller"""
+        """Difficulty filtresini uygular ve mevcut tabloyu günceller"""
         if self.merged_noduplicate_df is None:
             self.show_warning("Önce verileri yükleyin!")
             return
@@ -1283,27 +1055,15 @@ class ASOApp:
             if self.difficulty_limit > 0:
                 filtered_df = filtered_df[filtered_df['Difficulty'] <= self.difficulty_limit]
             
-            # Growth filtresi (eğer Growth sütunu varsa)
-            if self.growth_limit > 0 and 'Growth' in filtered_df.columns:
-                filtered_df = filtered_df[filtered_df['Growth'] >= self.growth_limit]
-            
-            # Kategori filtresi
-            if self.selected_category != "Tümü":
-                filtered_df = filtered_df[filtered_df['Category'] == self.selected_category]
-            
-            # Ülke filtresi (eğer Country sütunu varsa)
-            if self.selected_country_filter != "Tümü" and 'Country' in filtered_df.columns:
-                filtered_df = filtered_df[filtered_df['Country'] == self.selected_country_filter]
-            
             # Filtrelenmiş veriyi göster
             if filtered_df.empty:
                 self.show_warning("Filtre kriterlerine uygun veri bulunamadı!")
                 return
             
-            self.display_dataframe(filtered_df, f"Filtrelenmiş Tablo ({len(filtered_df)} kayıt)")
+            self.display_dataframe(filtered_df, f"Filtrelenmiş Tablo (Difficulty ≤ {self.difficulty_limit})")
             self.current_table = filtered_df
             
-            self.show_success(f"Filtreler uygulandı! {len(filtered_df)} kayıt gösteriliyor.")
+            self.show_success(f"Difficulty filtresi uygulandı! {len(filtered_df)} kayıt gösteriliyor.")
             
         except Exception as ex:
             self.show_error(f"Filtre uygulama hatası: {str(ex)}")
@@ -1317,11 +1077,8 @@ class ASOApp:
             # Show loading
             self.show_loading("Veriler yükleniyor...")
             
-            # Load data
+            # Load only merged data
             self.merged_noduplicate_df = Df_Get.merged_noduplicate_df(self.folder_path)
-            self.kvd_df = Df_Get.kvd_df(self.merged_noduplicate_df, self.difficulty_limit)
-            self.kelime_frekans_df = Df_Get.kelime_frekans_df(self.kvd_df, self.open_ai_key)
-            self.without_branded_df = Df_Get.without_branded_kf_df_get(self.kelime_frekans_df, self.open_ai_key)
             
             self.hide_loading()
             self.show_success("Veriler başarıyla yüklendi!")
@@ -1332,114 +1089,40 @@ class ASOApp:
     
     def show_merged_table(self, e):
         if self.merged_noduplicate_df is None:
-            # Test için sample CSV'leri otomatik yükle
-            try:
-                sample_path = "/Users/halenuryesilova/Downloads/ASO_Generator_Tool/sample_CSV_archive"
-                self.folder_path = sample_path
-                self.show_loading("Test verileri yükleniyor...")
-                self.merged_noduplicate_df = Df_Get.merged_noduplicate_df(sample_path)
-                self.hide_loading()
-                self.show_success("Test verileri yüklendi!")
-            except Exception as ex:
-                self.hide_loading()
-                self.show_error(f"Test veri yükleme hatası: {str(ex)}")
-                return
+            self.show_warning("Önce verileri yükleyin!")
+            return
         
-        self.display_dataframe(self.merged_noduplicate_df, "Birleştirilmiş Ana Tablo")
-        self.current_table = self.merged_noduplicate_df
-    
-    def show_kvd_table(self, e):
-        if self.kvd_df is None:
-            # Önce merged_df'i yükle
-            if self.merged_noduplicate_df is None:
-                try:
-                    sample_path = "/Users/halenuryesilova/Downloads/ASO_Generator_Tool/sample_CSV_archive"
-                    self.folder_path = sample_path
-                    self.show_loading("Test verileri yükleniyor...")
-                    self.merged_noduplicate_df = Df_Get.merged_noduplicate_df(sample_path)
-                    self.hide_loading()
-                except Exception as ex:
-                    self.hide_loading()
-                    self.show_error(f"Veri yükleme hatası: {str(ex)}")
-                    return
+        # Difficulty filtresi uygula
+        try:
+            filtered_df = self.merged_noduplicate_df.copy()
             
-            # KVD tablosunu oluştur
-            try:
-                self.show_loading("KVD tablosu oluşturuluyor...")
-                self.kvd_df = Df_Get.kvd_df(self.merged_noduplicate_df, self.difficulty_limit)
-                self.hide_loading()
-            except Exception as ex:
-                self.hide_loading()
-                self.show_error(f"KVD tablo oluşturma hatası: {str(ex)}")
-                return
-        
-        self.display_dataframe(self.kvd_df, "Keyword Volume Difficulty Tablosu")
-        self.current_table = self.kvd_df
+            # Difficulty sınırına göre filtrele
+            if self.difficulty_limit > 0:
+                filtered_df = filtered_df[filtered_df['Difficulty'] <= self.difficulty_limit]
+                self.display_dataframe(filtered_df, f"Birleştirilmiş Ana Tablo ")
+            else:
+                self.display_dataframe(filtered_df, "Birleştirilmiş Ana Tablo")
+            
+            self.current_table = filtered_df
+            self.show_success(f"Difficulty filtresi uygulandı! {len(filtered_df)} kayıt gösteriliyor.")
+            
+        except Exception as ex:
+            self.show_error(f"Difficulty filtreleme hatası: {str(ex)}")
+            # Hata durumunda orijinal tabloyu göster
+            self.display_dataframe(self.merged_noduplicate_df, "Birleştirilmiş Ana Tablo")
+            self.current_table = self.merged_noduplicate_df
     
-    def show_frequency_table(self, e):
-        if self.kelime_frekans_df is None:
-            self.show_warning("Önce verileri yükleyin!")
-            return
-        
-        self.display_dataframe(self.kelime_frekans_df, "Kelime Frekans Tablosu")
-        self.current_table = self.kelime_frekans_df
-    
-    def show_branded_filtered_table(self, e):
-        if self.without_branded_df is None:
-            self.show_warning("Önce verileri yükleyin!")
-            return
-        
-        self.display_dataframe(self.without_branded_df, "Branded Kelimeler Filtrelenmiş Tablo")
-        self.current_table = self.without_branded_df
-    
-    def show_suffixes_removed_table(self, e):
+    def show_merged_table_all(self, e):
+        """Tüm verileri difficulty filtresi olmadan göster"""
         if self.merged_noduplicate_df is None:
             self.show_warning("Önce verileri yükleyin!")
             return
         
-        try:
-            self.show_loading("Ekler kaldırılıyor...")
-            self.without_suffixes_df = Df_Get.without_suffixes_df_get(
-                self.without_branded_df, "United States", self.open_ai_key
-            )
-            self.hide_loading()
-            
-            self.display_dataframe(self.without_suffixes_df, "Eklerden Ayrılmış Kelimeler")
-            self.current_table = self.without_suffixes_df
-            
-        except Exception as ex:
-            self.hide_loading()
-            self.show_error(f"Ek kaldırma hatası: {str(ex)}")
+        self.display_dataframe(self.merged_noduplicate_df, "Birleştirilmiş Ana Tablo (Tüm Veriler)")
+        self.current_table = self.merged_noduplicate_df
+        self.show_success(f"Tüm veriler gösteriliyor! {len(self.merged_noduplicate_df)} kayıt.")
     
-    def show_title_subtitle_table(self, e):
-        if self.without_suffixes_df is None:
-            self.show_warning("Önce eklerden ayrılmış kelime tablosunu oluşturun!")
-            return
-        
-        try:
-            self.show_loading("Title ve Subtitle oluşturuluyor...")
-            
-            self.gpt_title_subtitle_df = Df_Get.gpt_Title_Subtitle_df_get(
-                self.without_suffixes_df, "App Name", "United States", self.open_ai_key
-            )
-            
-            if self.gpt_title_subtitle_df.empty:
-                self.difficulty_limit += 10
-                self.page.update()
-                self.load_data(None)
-                return self.show_title_subtitle_table(e)
-            
-            self.matching_keywords_df_ts, self.matching_keywords_df = Df_Get.find_matching_keywords(
-                self.gpt_title_subtitle_df, self.merged_noduplicate_df
-            )
-            
-            self.hide_loading()
-            self.display_dataframe(self.matching_keywords_df_ts, "Title Subtitle Analiz Tablosu")
-            self.current_table = self.matching_keywords_df_ts
-            
-        except Exception as ex:
-            self.hide_loading()
-            self.show_error(f"Title/Subtitle oluşturma hatası: {str(ex)}")
+
     
     def display_dataframe(self, df: pd.DataFrame, title: str):
         if df is None or df.empty:
@@ -1455,8 +1138,8 @@ class ASOApp:
         
         # Add columns with dynamic width
         for col in df.columns:
-            # Title sütunu için özel genişlik
-            if col == 'Title':
+            # Category sütunu için özel genişlik
+            if col == 'Category':
                 column_width = 120
             elif col == 'Keyword':
                 column_width = 200
@@ -1477,7 +1160,7 @@ class ASOApp:
             )
         
         # Add rows (limit to first 100 rows for performance)
-        for idx, row in df.head(100).iterrows():
+        for idx, row in df.iterrows():   
             cells = []
             for value in row:
                 cells.append(
