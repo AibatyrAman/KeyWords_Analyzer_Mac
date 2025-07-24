@@ -19,7 +19,7 @@ import platform
 import unicodedata
 
 # API anahtarı direkt kod içinde
-open_ai_key = 
+open_ai_key =
 # OpenAI client oluştur
 client = OpenAI(api_key=open_ai_key)
 
@@ -583,6 +583,10 @@ class ASOApp:
         self.folder_path = ""
         self.difficulty_limit = 20
         self.growth_limit = 0
+        self.keyword_search_term = ""
+        self.search_terms_list = []  # Çoklu arama terimleri listesi
+        self.exclude_terms_list = []  # Çıkarılacak kelimeler listesi
+        self.filter_non_latin = False  # Latin harici alfabeleri filtrele
         self.selected_country = "United States"
         self.app_name = ""
         self.open_ai_key = open_ai_key
@@ -590,6 +594,10 @@ class ASOApp:
         # DataFrame'ler
         self.merged_noduplicate_df = None
         self.current_table = None
+        
+        # Sıralama durumu
+        self.sort_column_index = 0
+        self.sort_ascending = True
         
         self.setup_ui()
         
@@ -726,6 +734,59 @@ class ASOApp:
             expand=True
         )
         
+        # Keyword search filter
+        self.keyword_search_input = ft.TextField(
+            label="Keyword Arama",
+            hint_text="Örn: ai, photo, music",
+            value="",
+            on_submit=self.add_search_term,  # Enter tuşuna basınca da ekle
+            expand=True
+        )
+        
+        # Add search term button
+        self.add_search_button = ft.ElevatedButton(
+            "Ekle",
+            on_click=self.add_search_term,
+            style=ft.ButtonStyle(
+                color=Colors.WHITE,
+                bgcolor=Colors.BLUE_500,
+                elevation=2,
+                shape=ft.RoundedRectangleBorder(radius=8)
+            ),
+            height=40,
+            width=80
+        )
+        
+        # Exclude search term button
+        self.exclude_search_button = ft.ElevatedButton(
+            "Çıkar",
+            on_click=self.add_exclude_term,
+            style=ft.ButtonStyle(
+                color=Colors.WHITE,
+                bgcolor=Colors.RED_500,
+                elevation=2,
+                shape=ft.RoundedRectangleBorder(radius=8)
+            ),
+            height=40,
+            width=80
+        )
+        
+        # Search terms container - dynamic chips
+        self.search_terms_container = ft.Row(
+            controls=[],
+            spacing=5,
+            wrap=True,
+            alignment=ft.MainAxisAlignment.START
+        )
+        
+        # Non-Latin filter checkbox
+        self.non_latin_checkbox = ft.Checkbox(
+            label="Latin Harici Alfabeleri Çıkar",
+            value=False,
+            on_change=self.on_non_latin_filter_changed,
+            label_style=ft.TextStyle(size=12, color=Colors.BLUE_700)
+        )
+        
 
         
         # Apply filters button
@@ -794,7 +855,25 @@ class ASOApp:
                         ft.Container(width=10),
                         self.growth_input
                     ]),
-                                        ft.Divider(height=10),
+                    ft.Divider(height=10),
+                    ft.Row([
+                        self.keyword_search_input,
+                        ft.Container(width=5),
+                        self.add_search_button,
+                        ft.Container(width=5),
+                        self.exclude_search_button
+                    ]),
+                    ft.Divider(height=5),
+                    ft.Text(
+                        "🏷️ Arama Terimleri:",
+                        size=12,
+                        color=Colors.BLUE_600,
+                        weight=FontWeight.BOLD
+                    ),
+                    self.search_terms_container,
+                    ft.Divider(height=10),
+                    self.non_latin_checkbox,
+                    ft.Divider(height=10),
                     self.apply_filters_button,
                     ft.Container(height=10)  # Bottom padding
                 ], spacing=5, scroll=ScrollMode.ALWAYS),
@@ -844,7 +923,9 @@ class ASOApp:
             heading_row_height=50,
             column_spacing=20,  # Küçültüldü responsive için
             show_checkbox_column=False,
-            divider_thickness=1
+            divider_thickness=1,
+            sort_column_index=self.sort_column_index,
+            sort_ascending=self.sort_ascending
             # width kaldırıldı - responsive olacak
         )
         
@@ -1040,10 +1121,181 @@ class ASOApp:
         except ValueError:
             self.growth_limit = 0
     
+    def on_non_latin_filter_changed(self, e):
+        """Latin harici alfabe filtresinin durumu değiştiğinde çağrılır"""
+        self.filter_non_latin = e.control.value
+        
+        # Eğer şu anda tablo görüntüleniyorsa, otomatik filtrele
+        if (self.current_table is not None and 
+            hasattr(self, 'merged_noduplicate_df') and 
+            self.merged_noduplicate_df is not None):
+            self.apply_filters(None)
+    
+    def add_search_term(self, e):
+        """Arama terimine yeni kelime ekler"""
+        term = self.keyword_search_input.value.strip()
+        if not term:
+            return
+        
+        # Aynı terim zaten var mı kontrol et
+        if term.lower() not in [t.lower() for t in self.search_terms_list]:
+            self.search_terms_list.append(term)
+            self.update_search_terms_display()
+            
+            # Input'u temizle
+            self.keyword_search_input.value = ""
+            self.page.update()
+            
+            # Filtreleri uygula
+            self.apply_filters(None)
+    
+    def add_exclude_term(self, e):
+        """İstenmeyen kelime ekler"""
+        term = self.keyword_search_input.value.strip()
+        if not term:
+            return
+        
+        # Aynı terim zaten var mı kontrol et
+        if term.lower() not in [t.lower() for t in self.exclude_terms_list]:
+            self.exclude_terms_list.append(term)
+            self.update_search_terms_display()
+            
+            # Input'u temizle
+            self.keyword_search_input.value = ""
+            self.page.update()
+            
+            # Filtreleri uygula
+            self.apply_filters(None)
+    
+    def remove_search_term(self, term):
+        """Arama terimini listeden kaldırır"""
+        if term in self.search_terms_list:
+            self.search_terms_list.remove(term)
+            self.update_search_terms_display()
+            
+            # Filtreleri yeniden uygula
+            self.apply_filters(None)
+    
+    def remove_exclude_term(self, term):
+        """İstenmeyen kelimeyi listeden kaldırır"""
+        if term in self.exclude_terms_list:
+            self.exclude_terms_list.remove(term)
+            self.update_search_terms_display()
+            
+            # Filtreleri yeniden uygula
+            self.apply_filters(None)
+    
+    def update_search_terms_display(self):
+        """Arama terimleri görüntüsünü günceller"""
+        self.search_terms_container.controls.clear()
+        
+        # Dahil edilecek terimler (mavi)
+        for term in self.search_terms_list:
+            chip = ft.Container(
+                content=ft.Row([
+                    ft.Icon(Icons.ADD, size=14, color=Colors.WHITE),
+                    ft.Text(
+                        term,
+                        size=12,
+                        color=Colors.WHITE,
+                        weight=FontWeight.BOLD
+                    ),
+                    ft.IconButton(
+                        icon=Icons.CLOSE,
+                        icon_size=16,
+                        icon_color=Colors.WHITE,
+                        on_click=lambda e, t=term: self.remove_search_term(t),
+                        tooltip=f"'{term}' terimini kaldır"
+                    )
+                ], spacing=2),
+                bgcolor=Colors.BLUE_600,
+                border_radius=20,
+                padding=ft.padding.symmetric(horizontal=12, vertical=5),
+                margin=ft.margin.symmetric(horizontal=2, vertical=2)
+            )
+            self.search_terms_container.controls.append(chip)
+        
+        # Çıkarılacak terimler (kırmızı)
+        for term in self.exclude_terms_list:
+            chip = ft.Container(
+                content=ft.Row([
+                    ft.Icon(Icons.REMOVE, size=14, color=Colors.WHITE),
+                    ft.Text(
+                        term,
+                        size=12,
+                        color=Colors.WHITE,
+                        weight=FontWeight.BOLD
+                    ),
+                    ft.IconButton(
+                        icon=Icons.CLOSE,
+                        icon_size=16,
+                        icon_color=Colors.WHITE,
+                        on_click=lambda e, t=term: self.remove_exclude_term(t),
+                        tooltip=f"'{term}' çıkarma terimini kaldır"
+                    )
+                ], spacing=2),
+                bgcolor=Colors.RED_600,
+                border_radius=20,
+                padding=ft.padding.symmetric(horizontal=12, vertical=5),
+                margin=ft.margin.symmetric(horizontal=2, vertical=2)
+            )
+            self.search_terms_container.controls.append(chip)
+        
+        # Eğer hiç terim yoksa placeholder göster
+        if not self.search_terms_list and not self.exclude_terms_list:
+            placeholder = ft.Text(
+                "Henüz arama terimi eklenmedi",
+                size=12,
+                color=Colors.GREY_500,
+                italic=True
+            )
+            self.search_terms_container.controls.append(placeholder)
+        
+        self.page.update()
+    
+    def is_latin_only_keyword(self, keyword):
+        """Keyword'ün sadece Latin alfabesi kullanıp kullanmadığını kontrol eder.
+        Sadece başındaki ve sonundaki harfleri kontrol eder (performans için)."""
+        if not keyword or not isinstance(keyword, str):
+            return True
+        
+        # Keyword'ü temizle (whitespace kaldır)
+        keyword = keyword.strip()
+        if not keyword:
+            return True
+        
+        # Sadece alfabetik karakterleri kontrol et
+        letters_only = ''.join([c for c in keyword if c.isalpha()])
+        if not letters_only:
+            return True  # Harf yoksa Latin sayılır
+        
+        # Baştan ve sondan birer harf kontrol et
+        chars_to_check = []
+        
+        # İlk harf
+        if len(letters_only) > 0:
+            chars_to_check.append(letters_only[0])
+        
+        # Son harf (ilk harfle aynı değilse)
+        if len(letters_only) > 1:
+            chars_to_check.append(letters_only[-1])
+        
+        # Her karakteri kontrol et
+        for char in chars_to_check:
+            try:
+                char_name = unicodedata.name(char, '')
+                # LATIN içerip içermediğini kontrol et
+                if 'LATIN' not in char_name.upper():
+                    return False
+            except ValueError:
+                # Karakter adı bulunamadıysa, güvenli tarafta kal
+                return False
+        
+        return True
 
     
     def apply_filters(self, e):
-        """Difficulty filtresini uygular ve mevcut tabloyu günceller"""
+        """Tüm filtreleri uygular ve mevcut tabloyu günceller"""
         if self.merged_noduplicate_df is None:
             self.show_warning("Önce verileri yükleyin!")
             return
@@ -1056,18 +1308,199 @@ class ASOApp:
             if self.difficulty_limit > 0:
                 filtered_df = filtered_df[filtered_df['Difficulty'] <= self.difficulty_limit]
             
+            # Çoklu keyword arama filtresi (SQL OR mantığı - Tam eşleşme + Prefix + Suffix)
+            if self.search_terms_list:
+                # Her terim için 3 farklı kondisyon: tam eşleşme, prefix, suffix
+                conditions = []
+                for term in self.search_terms_list:
+                    term_lower = term.lower()
+                    keyword_lower = filtered_df['Keyword'].str.lower()
+                    
+                    # 1. Tam eşleşme: keyword = 'ai'
+                    exact_match = keyword_lower == term_lower
+                    
+                    # 2. Başında geçenler: keyword LIKE 'ai%' 
+                    starts_with = keyword_lower.str.startswith(term_lower)
+                    
+                    # 3. Sonunda geçenler: keyword LIKE '%ai'
+                    ends_with = keyword_lower.str.endswith(term_lower)
+                    
+                    # Bu terimin tüm kondisyonlarını OR ile birleştir
+                    term_condition = exact_match | starts_with | ends_with
+                    conditions.append(term_condition)
+                
+                # Tüm terimlerin kondisyonlarını OR ile birleştir (| operatörü)
+                if conditions:
+                    combined_condition = conditions[0]
+                    for condition in conditions[1:]:
+                        combined_condition = combined_condition | condition
+                    
+                    filtered_df = filtered_df[combined_condition]
+            
+            # Çıkarılacak kelimeler filtresi (SQL NOT mantığı)
+            if self.exclude_terms_list:
+                # Her çıkarılacak terim için NOT kondisyonu oluştur
+                exclude_conditions = []
+                for term in self.exclude_terms_list:
+                    term_lower = term.lower()
+                    keyword_lower = filtered_df['Keyword'].str.lower()
+                    
+                    # Tam eşleşme VEYA prefix VEYA suffix olan keyword'leri çıkar
+                    exact_match = keyword_lower == term_lower
+                    starts_with = keyword_lower.str.startswith(term_lower)
+                    ends_with = keyword_lower.str.endswith(term_lower)
+                    
+                    # Bu terimin tüm kondisyonlarını OR ile birleştir (eşleşenleri bul)
+                    term_to_exclude = exact_match | starts_with | ends_with
+                    exclude_conditions.append(term_to_exclude)
+                
+                # Tüm çıkarılacak kondisyonları OR ile birleştir
+                if exclude_conditions:
+                    combined_exclude_condition = exclude_conditions[0]
+                    for condition in exclude_conditions[1:]:
+                        combined_exclude_condition = combined_exclude_condition | condition
+                    
+                    # NOT mantığı: Eşleşmeyen satırları tut (~combined_exclude_condition)
+                    filtered_df = filtered_df[~combined_exclude_condition]
+            
+            # Latin harici alfabe filtresi
+            if self.filter_non_latin:
+                # Sadece Latin alfabesi kullanan keyword'leri tut
+                latin_mask = filtered_df['Keyword'].apply(self.is_latin_only_keyword)
+                filtered_df = filtered_df[latin_mask]
+            
             # Filtrelenmiş veriyi göster
             if filtered_df.empty:
                 self.show_warning("Filtre kriterlerine uygun veri bulunamadı!")
                 return
             
-            self.display_dataframe(filtered_df, f"Filtrelenmiş Tablo (Difficulty ≤ {self.difficulty_limit})")
+            # Başlığı dinamik olarak oluştur
+            title_parts = []
+            if self.difficulty_limit > 0:
+                title_parts.append(f"Difficulty ≤ {self.difficulty_limit}")
+            if self.search_terms_list:
+                search_terms_str = " OR ".join([f"'{term}'" for term in self.search_terms_list])
+                title_parts.append(f"Include: {search_terms_str}")
+            if self.exclude_terms_list:
+                exclude_terms_str = " OR ".join([f"'{term}'" for term in self.exclude_terms_list])
+                title_parts.append(f"Exclude: {exclude_terms_str}")
+            if self.filter_non_latin:
+                title_parts.append("Latin Only")
+            
+            if title_parts:
+                title = f"Filtrelenmiş Tablo ({', '.join(title_parts)})"
+            else:
+                title = "Filtrelenmiş Tablo"
+            
+            self.display_dataframe(filtered_df, title)
             self.current_table = filtered_df
             
-            self.show_success(f"Difficulty filtresi uygulandı! {len(filtered_df)} kayıt gösteriliyor.")
+            filter_info = []
+            if self.difficulty_limit > 0:
+                filter_info.append(f"Difficulty ≤ {self.difficulty_limit}")
+            if self.search_terms_list:
+                filter_info.append(f"Include: {' OR '.join(self.search_terms_list)}")
+            if self.exclude_terms_list:
+                filter_info.append(f"Exclude: {' OR '.join(self.exclude_terms_list)}")
+            if self.filter_non_latin:
+                filter_info.append("Sadece Latin alfabesi")
+            
+            if filter_info:
+                self.show_success(f"Filtreler uygulandı ({', '.join(filter_info)})! {len(filtered_df)} kayıt gösteriliyor.")
+            else:
+                self.show_success(f"Tüm veriler gösteriliyor! {len(filtered_df)} kayıt.")
             
         except Exception as ex:
             self.show_error(f"Filtre uygulama hatası: {str(ex)}")
+    
+    def sort_table_data(self, e):
+        """Tablo sütunlarını sıralar"""
+        if self.current_table is None or self.current_table.empty:
+            return
+        
+        try:
+            # Tıklanan sütunun indeksi ve sıralama yönü güncellenir
+            if self.sort_column_index == e.column_index:
+                self.sort_ascending = not self.sort_ascending
+            else:
+                self.sort_column_index = e.column_index
+                self.sort_ascending = True
+            
+            # DataFrame sütun adını al
+            column_name = self.current_table.columns[e.column_index]
+            
+            # DataFrame'i sırala
+            if column_name in ['Volume', 'Difficulty', 'Frekans']:
+                # Sayısal sütunlar için numeric sorting
+                self.current_table = self.current_table.sort_values(
+                    by=column_name, 
+                    ascending=self.sort_ascending,
+                    kind='mergesort'  # Stable sort
+                )
+            else:
+                # String sütunlar için string sorting
+                self.current_table = self.current_table.sort_values(
+                    by=column_name, 
+                    ascending=self.sort_ascending,
+                    kind='mergesort'  # Stable sort
+                )
+            
+            # Sıralanmış veriyi yeniden göster
+            self.refresh_table_display()
+            
+        except Exception as ex:
+            self.show_error(f"Sıralama hatası: {str(ex)}")
+    
+    def refresh_table_display(self):
+        """Tabloyu yeniden yükler ve sıralama bilgilerini günceller"""
+        if self.current_table is None or self.current_table.empty:
+            return
+        
+        # Mevcut başlığı koru
+        current_title = self.table_title.value
+        
+        # Clear existing data
+        self.data_table.columns.clear()
+        self.data_table.rows.clear()
+        
+        # Add columns with sorting capability
+        for idx, col in enumerate(self.current_table.columns):
+            # Sütun türüne göre numeric belirleme
+            is_numeric = col in ['Volume', 'Difficulty', 'Frekans']
+            
+            self.data_table.columns.append(
+                ft.DataColumn(
+                    ft.Text(
+                        str(col),
+                        size=12,
+                        weight=FontWeight.BOLD,
+                        color=Colors.BLUE_700
+                    ),
+                    on_sort=self.sort_table_data,
+                    numeric=is_numeric
+                )
+            )
+        
+        # Add rows
+        for idx, row in self.current_table.iterrows():
+            cells = []
+            for value in row:
+                cells.append(
+                    ft.DataCell(
+                        ft.Text(
+                            str(value),
+                            size=11,
+                            color=Colors.BLACK87
+                        )
+                    )
+                )
+            self.data_table.rows.append(ft.DataRow(cells=cells))
+        
+        # Update sorting properties
+        self.data_table.sort_column_index = self.sort_column_index
+        self.data_table.sort_ascending = self.sort_ascending
+        
+        self.page.update()
     
     def load_data(self, e):
         if not self.folder_path:
@@ -1133,22 +1566,22 @@ class ASOApp:
         # Update table title
         self.table_title.value = title
         
+        # Sıralama durumunu sıfırla (yeni veri için)
+        self.sort_column_index = 0
+        self.sort_ascending = True
+        
+        # Current table'ı güncelle
+        self.current_table = df.copy()
+        
         # Clear existing data
         self.data_table.columns.clear()
         self.data_table.rows.clear()
         
-        # Add columns with dynamic width
-        for col in df.columns:
-            # Category sütunu için özel genişlik
-            if col == 'Category':
-                column_width = 120
-            elif col == 'Keyword':
-                column_width = 200
-            elif col in ['Volume', 'Difficulty', 'Frekans']:
-                column_width = 100
-            else:
-                column_width = 150
-                
+        # Add columns with sorting capability
+        for idx, col in enumerate(df.columns):
+            # Sütun türüne göre numeric belirleme
+            is_numeric = col in ['Volume', 'Difficulty', 'Frekans']
+            
             self.data_table.columns.append(
                 ft.DataColumn(
                     ft.Text(
@@ -1156,11 +1589,13 @@ class ASOApp:
                         size=12,
                         weight=FontWeight.BOLD,
                         color=Colors.BLUE_700
-                    )
+                    ),
+                    on_sort=self.sort_table_data,
+                    numeric=is_numeric
                 )
             )
         
-        # Add rows (limit to first 100 rows for performance)
+        # Add rows
         for idx, row in df.iterrows():   
             cells = []
             for value in row:
@@ -1174,6 +1609,10 @@ class ASOApp:
                     )
                 )
             self.data_table.rows.append(ft.DataRow(cells=cells))
+        
+        # Update sorting properties
+        self.data_table.sort_column_index = self.sort_column_index
+        self.data_table.sort_ascending = self.sort_ascending
         
         self.page.update()
     
