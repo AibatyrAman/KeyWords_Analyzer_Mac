@@ -19,7 +19,7 @@ import platform
 import unicodedata
 
 # API anahtarı direkt kod içinde
-open_ai_key =
+open_ai_key = "your-api-key-here"  # Buraya OpenAI API anahtarınızı girin
 # OpenAI client oluştur
 client = OpenAI(api_key=open_ai_key)
 
@@ -1187,8 +1187,20 @@ class ASOApp:
             label="Dosya Adı (isteğe bağlı)",
             hint_text="aso_table",
             value="",
-            expand=True,
-            height=45
+            expand=True
+        )
+        
+        # Kaydetme yeri seçimi
+        self.save_location_dropdown = ft.Dropdown(
+            label="Kaydetme Yeri",
+            value="finder",
+            options=[
+                ft.dropdown.Option("finder", "🔍 Finder ile Seç"),
+                ft.dropdown.Option("desktop", "🖥️ Masaüstü"),
+                ft.dropdown.Option("project", "📁 Proje Klasörü"),
+                ft.dropdown.Option("both", "📁 Her İkisi")
+            ],
+            expand=True
         )
         
         # Export button - Responsive
@@ -1221,6 +1233,8 @@ class ASOApp:
                     ),
                     ft.Row([
                         self.filename_input,
+                        ft.Container(width=10),
+                        self.save_location_dropdown,
                         ft.Container(width=10),
                         self.export_button
                     ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
@@ -1325,16 +1339,55 @@ class ASOApp:
                                 # Tarih modu: Alt klasörleri kontrol et
                                 alt_klasorler = [d for d in os.listdir(selected_path) 
                                                 if os.path.isdir(os.path.join(selected_path, d))]
-                            
-                            if alt_klasorler:
-                                # Alt klasörlerde CSV dosyalarını say
-                                total_csv_files = 0
-                                for alt_klasor in alt_klasorler:
-                                    alt_klasor_yolu = os.path.join(selected_path, alt_klasor)
-                                    csv_files = [f for f in os.listdir(alt_klasor_yolu) if f.endswith('.csv')]
-                                    total_csv_files += len(csv_files)
                                 
-                                if total_csv_files > 0:
+                                if alt_klasorler:
+                                    # Alt klasörlerde CSV dosyalarını say
+                                    total_csv_files = 0
+                                    for alt_klasor in alt_klasorler:
+                                        alt_klasor_yolu = os.path.join(selected_path, alt_klasor)
+                                        csv_files = [f for f in os.listdir(alt_klasor_yolu) if f.endswith('.csv')]
+                                        total_csv_files += len(csv_files)
+                                    
+                                    if total_csv_files > 0:
+                                        # Klasör yolunu ayarla
+                                        self.folder_path = selected_path
+                                        
+                                        # UI'yi güncelle
+                                        self.folder_display.content = ft.Column([
+                                            ft.Icon(Icons.FOLDER, size=40, color=Colors.GREEN_600),
+                                            ft.Text(
+                                                "Ana Klasör Seçildi",
+                                                size=16,
+                                                text_align=ft.TextAlign.CENTER,
+                                                color=Colors.GREEN_600
+                                            ),
+                                            ft.Text(
+                                                os.path.basename(selected_path),
+                                                size=12,
+                                                text_align=ft.TextAlign.CENTER,
+                                                color=Colors.GREY_600
+                                            ),
+                                            ft.Text(
+                                                f"{len(alt_klasorler)} alt klasör, {total_csv_files} CSV dosyası",
+                                                size=10,
+                                                text_align=ft.TextAlign.CENTER,
+                                                color=Colors.GREEN_600
+                                            )
+                                        ], alignment=ft.MainAxisAlignment.CENTER)
+                                        self.folder_display.bgcolor = Colors.GREEN_50
+                                        self.folder_display.border = ft.border.all(2, Colors.GREEN_200)
+                                        
+                                        self.show_success(f"Ana klasör seçildi: {os.path.basename(selected_path)} ({len(alt_klasorler)} alt klasör, {total_csv_files} CSV dosyası)")
+                                        self.page.update()
+                                    else:
+                                        self.show_error(f"Alt klasörlerde CSV dosyası bulunamadı: {os.path.basename(selected_path)}")
+                                else:
+                                    self.show_error(f"Seçilen klasörde alt klasör bulunamadı: {os.path.basename(selected_path)}")
+                            else:
+                                # Normal mod: CSV dosyalarını kontrol et
+                                csv_files = [f for f in os.listdir(selected_path) if f.endswith('.csv')]
+                                
+                                if csv_files:
                                     # Klasör yolunu ayarla
                                     self.folder_path = selected_path
                                     
@@ -1342,7 +1395,7 @@ class ASOApp:
                                     self.folder_display.content = ft.Column([
                                         ft.Icon(Icons.FOLDER, size=40, color=Colors.GREEN_600),
                                         ft.Text(
-                                            "Ana Klasör Seçildi",
+                                            "Klasör Seçildi",
                                             size=16,
                                             text_align=ft.TextAlign.CENTER,
                                             color=Colors.GREEN_600
@@ -1354,7 +1407,7 @@ class ASOApp:
                                             color=Colors.GREY_600
                                         ),
                                         ft.Text(
-                                            f"{len(alt_klasorler)} alt klasör, {total_csv_files} CSV dosyası",
+                                            f"{len(csv_files)} CSV dosyası bulundu",
                                             size=10,
                                             text_align=ft.TextAlign.CENTER,
                                             color=Colors.GREEN_600
@@ -1363,49 +1416,12 @@ class ASOApp:
                                     self.folder_display.bgcolor = Colors.GREEN_50
                                     self.folder_display.border = ft.border.all(2, Colors.GREEN_200)
                                     
-                                    self.show_success(f"Ana klasör seçildi: {os.path.basename(selected_path)} ({len(alt_klasorler)} alt klasör, {total_csv_files} CSV dosyası)")
+                                    self.show_success(f"Klasör seçildi: {os.path.basename(selected_path)} ({len(csv_files)} CSV dosyası)")
                                     self.page.update()
                                 else:
-                                    self.show_error(f"Alt klasörlerde CSV dosyası bulunamadı: {os.path.basename(selected_path)}")
-                            else:
-                                self.show_error(f"Seçilen klasörde alt klasör bulunamadı: {os.path.basename(selected_path)}")
+                                    self.show_error(f"Seçilen klasörde CSV dosyası bulunamadı: {os.path.basename(selected_path)}")
                         else:
-                            # Normal mod: CSV dosyalarını kontrol et
-                            csv_files = [f for f in os.listdir(selected_path) if f.endswith('.csv')]
-                            
-                            if csv_files:
-                                # Klasör yolunu ayarla
-                                self.folder_path = selected_path
-                                
-                                # UI'yi güncelle
-                                self.folder_display.content = ft.Column([
-                                    ft.Icon(Icons.FOLDER, size=40, color=Colors.GREEN_600),
-                                    ft.Text(
-                                        "Klasör Seçildi",
-                                        size=16,
-                                        text_align=ft.TextAlign.CENTER,
-                                        color=Colors.GREEN_600
-                                    ),
-                                    ft.Text(
-                                        os.path.basename(selected_path),
-                                        size=12,
-                                        text_align=ft.TextAlign.CENTER,
-                                        color=Colors.GREY_600
-                                    ),
-                                    ft.Text(
-                                        f"{len(csv_files)} CSV dosyası bulundu",
-                                        size=10,
-                                        text_align=ft.TextAlign.CENTER,
-                                        color=Colors.GREEN_600
-                                    )
-                                ], alignment=ft.MainAxisAlignment.CENTER)
-                                self.folder_display.bgcolor = Colors.GREEN_50
-                                self.folder_display.border = ft.border.all(2, Colors.GREEN_200)
-                                
-                                self.show_success(f"Klasör seçildi: {os.path.basename(selected_path)} ({len(csv_files)} CSV dosyası)")
-                                self.page.update()
-                            else:
-                                self.show_error(f"Seçilen klasörde CSV dosyası bulunamadı: {os.path.basename(selected_path)}")
+                            self.show_error("Geçersiz klasör yolu seçildi!")
                     else:
                         self.show_error("Geçersiz klasör yolu seçildi!")
                 else:
@@ -2200,22 +2216,78 @@ class ASOApp:
             
             excel_data = buffer.getvalue()
             
-            # Save to project directory and Desktop
-            project_path = os.path.join(os.getcwd(), filename)
-            desktop_path = os.path.join(os.path.expanduser("~"), "Desktop", filename)
+            # Kaydetme yerini al
+            save_location = self.save_location_dropdown.value
             
-            # Save Excel files
-            with open(project_path, 'wb') as f:
-                f.write(excel_data)
-            
-            try:
-                with open(desktop_path, 'wb') as f:
-                    f.write(excel_data)
-                self.hide_loading()
-                self.show_success(f"✅ Excel dosyası kaydedildi!\n📁 Proje: {filename}\n🖥️ Masaüstü: {filename}")
-            except PermissionError:
-                self.hide_loading()
-                self.show_success(f"✅ Excel dosyası proje klasörüne kaydedildi: {filename}")
+            if save_location == "finder":
+                # Finder ile dosya kaydetme yeri seç
+                try:
+                    script = f'''
+                    tell application "System Events"
+                        activate
+                        set saveFile to choose file name with prompt "Excel dosyasını kaydet" default name "{filename}"
+                        return POSIX path of saveFile
+                    end tell
+                    '''
+                    
+                    result = subprocess.run(['osascript', '-e', script], 
+                                          capture_output=True, text=True, timeout=30)
+                    
+                    if result.returncode == 0 and result.stdout.strip():
+                        selected_path = result.stdout.strip()
+                        
+                        # Dosyayı seçilen yere kaydet
+                        with open(selected_path, 'wb') as f:
+                            f.write(excel_data)
+                        
+                        self.hide_loading()
+                        self.show_success(f"✅ Excel dosyası kaydedildi: {os.path.basename(selected_path)}")
+                        
+                    else:
+                        # Kullanıcı iptal etti
+                        self.hide_loading()
+                        self.show_warning("Dosya kaydetme iptal edildi.")
+                        
+                except Exception as ex:
+                    self.hide_loading()
+                    self.show_error(f"Finder hatası: {str(ex)}")
+                    
+            else:
+                # Eski yöntem (dropdown ile)
+                # Dosya yollarını hazırla
+                project_path = os.path.join(os.getcwd(), filename)
+                desktop_path = os.path.join(os.path.expanduser("~"), "Desktop", filename)
+                
+                # Seçilen yere göre kaydet
+                if save_location == "desktop":
+                    try:
+                        with open(desktop_path, 'wb') as f:
+                            f.write(excel_data)
+                        self.hide_loading()
+                        self.show_success(f"✅ Excel dosyası masaüstüne kaydedildi: {filename}")
+                    except PermissionError:
+                        self.hide_loading()
+                        self.show_error("❌ Masaüstüne kaydetme hatası!")
+                        
+                elif save_location == "project":
+                    with open(project_path, 'wb') as f:
+                        f.write(excel_data)
+                    self.hide_loading()
+                    self.show_success(f"✅ Excel dosyası proje klasörüne kaydedildi: {filename}")
+                    
+                elif save_location == "both":
+                    # Her ikisine de kaydet
+                    with open(project_path, 'wb') as f:
+                        f.write(excel_data)
+                    
+                    try:
+                        with open(desktop_path, 'wb') as f:
+                            f.write(excel_data)
+                        self.hide_loading()
+                        self.show_success(f"✅ Excel dosyası kaydedildi!\n📁 Proje: {filename}\n🖥️ Masaüstü: {filename}")
+                    except PermissionError:
+                        self.hide_loading()
+                        self.show_success(f"✅ Excel dosyası proje klasörüne kaydedildi: {filename}")
             
             # Dosya adı alanını temizle
             self.filename_input.value = ""
@@ -2238,14 +2310,58 @@ class ASOApp:
                 csv_project_path = os.path.join(os.getcwd(), csv_filename)
                 csv_desktop_path = os.path.join(os.path.expanduser("~"), "Desktop", csv_filename)
                 
-                # Save CSV files
-                self.current_table.to_csv(csv_project_path, index=False)
+                # Seçilen yere göre CSV kaydet
+                save_location = self.save_location_dropdown.value
                 
-                try:
-                    self.current_table.to_csv(csv_desktop_path, index=False)
-                    self.show_warning(f"⚠️ Excel başarısız, CSV kaydedildi!\n📁 Proje: {csv_filename}\n🖥️ Masaüstü: {csv_filename}")
-                except PermissionError:
+                if save_location == "finder":
+                    # Finder ile CSV dosyası kaydetme yeri seç
+                    try:
+                        script = f'''
+                        tell application "System Events"
+                            activate
+                            set saveFile to choose file name with prompt "CSV dosyasını kaydet" default name "{csv_filename}"
+                            return POSIX path of saveFile
+                        end tell
+                        '''
+                        
+                        result = subprocess.run(['osascript', '-e', script], 
+                                              capture_output=True, text=True, timeout=30)
+                        
+                        if result.returncode == 0 and result.stdout.strip():
+                            selected_path = result.stdout.strip()
+                            
+                            # CSV dosyasını seçilen yere kaydet
+                            self.current_table.to_csv(selected_path, index=False)
+                            
+                            self.show_warning(f"⚠️ Excel başarısız, CSV kaydedildi: {os.path.basename(selected_path)}")
+                            
+                        else:
+                            # Kullanıcı iptal etti
+                            self.show_warning("CSV dosya kaydetme iptal edildi.")
+                            
+                    except Exception as ex:
+                        self.show_error(f"Finder CSV hatası: {str(ex)}")
+                        
+                elif save_location == "desktop":
+                    try:
+                        self.current_table.to_csv(csv_desktop_path, index=False)
+                        self.show_warning(f"⚠️ Excel başarısız, CSV masaüstüne kaydedildi: {csv_filename}")
+                    except PermissionError:
+                        self.show_warning(f"⚠️ Excel başarısız, CSV masaüstüne kaydetme hatası!")
+                        
+                elif save_location == "project":
+                    self.current_table.to_csv(csv_project_path, index=False)
                     self.show_warning(f"⚠️ Excel başarısız, CSV proje klasörüne kaydedildi: {csv_filename}")
+                    
+                elif save_location == "both":
+                    # Her ikisine de kaydet
+                    self.current_table.to_csv(csv_project_path, index=False)
+                    
+                    try:
+                        self.current_table.to_csv(csv_desktop_path, index=False)
+                        self.show_warning(f"⚠️ Excel başarısız, CSV kaydedildi!\n📁 Proje: {csv_filename}\n🖥️ Masaüstü: {csv_filename}")
+                    except PermissionError:
+                        self.show_warning(f"⚠️ Excel başarısız, CSV proje klasörüne kaydedildi: {csv_filename}")
                 
                 # Dosya adı alanını temizle
                 self.filename_input.value = ""
