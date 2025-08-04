@@ -19,7 +19,8 @@ import platform
 import unicodedata
 
 # API anahtarı direkt kod içinde
-open_ai_key =# OpenAI client oluştur
+open_ai_key =
+# OpenAI client oluştur
 client = OpenAI(api_key=open_ai_key)
 
 logging.basicConfig(
@@ -104,9 +105,8 @@ class Df_Get():
             # Öncelikle, Difficulty sütununa göre azalan sırayla sıralıyoruz
             birlesik_df.sort_values(by="Difficulty", ascending=False, inplace=True)
 
-            # Sadece Keyword sütunundaki tekrarları kaldırıp,
-            # en yüksek Difficulty değerine sahip satırı tutuyoruz
-            birlesik_df.drop_duplicates(subset=["Keyword"], keep="first", ignore_index=True, inplace=True)
+            # Tekrarlayan keyword'leri kaldırma işlemini kaldırdık
+            # Artık tüm keyword'ler görünecek
 
             print("DEBUG: Birleştirilmiş DataFrame şekli:", birlesik_df.shape)
             print("DEBUG: Sütunlar:", birlesik_df.columns.tolist())
@@ -114,6 +114,151 @@ class Df_Get():
 
         except Exception as e:
             raise ValueError(f"CSV birleştirme hatası: {e}")
+    
+    def merged_with_date_df(ana_klasor_yolu):
+        """
+        Ana klasördeki tüm tarih klasörlerini işler ve her keyword'e tarih bilgisi ekler.
+        Örnek: 15-22.07.2025_trending_keywords klasöründeki 20.07.2025_trending_keywords, 21.07.2025_trending_keywords vb.
+        """
+        print("DEBUG: merged_with_date_df() başlatıldı. Ana klasör:", ana_klasor_yolu)
+        print("DEBUG: Ana klasör var mı:", os.path.exists(ana_klasor_yolu))
+        print("DEBUG: Ana klasör dizin mi:", os.path.isdir(ana_klasor_yolu))
+        
+        try:
+            # Ana klasördeki tüm alt klasörleri bul
+            alt_klasorler = [d for d in os.listdir(ana_klasor_yolu) 
+                            if os.path.isdir(os.path.join(ana_klasor_yolu, d))]
+            print("DEBUG: Bulunan alt klasörler:", alt_klasorler)
+            
+            if not alt_klasorler:
+                raise ValueError("Ana klasörde hiç alt klasör bulunamadı!")
+            
+            all_dataframes = []
+            
+            for alt_klasor in alt_klasorler:
+                alt_klasor_yolu = os.path.join(ana_klasor_yolu, alt_klasor)
+                
+                # Tarih bilgisini alt klasör adından çıkar
+                # "20.07.2025_trending_keywords" -> "20.07.2025"
+                tarih_bilgisi = alt_klasor.split('_')[0] if '_' in alt_klasor else alt_klasor
+                
+                print(f"DEBUG: İşlenen alt klasör: {alt_klasor}, Tarih: {tarih_bilgisi}")
+                
+                # Alt klasördeki CSV dosyalarını bul
+                csv_dosyalar = [f for f in os.listdir(alt_klasor_yolu) if f.endswith('.csv')]
+                print(f"DEBUG: {alt_klasor} klasöründe {len(csv_dosyalar)} CSV dosyası bulundu")
+                
+                for dosya in csv_dosyalar:
+                    df_temp = pd.read_csv(os.path.join(alt_klasor_yolu, dosya))
+                    print(f"DEBUG: {alt_klasor}/{dosya} okundu, şekli: {df_temp.shape}")
+                    
+                    # Growth sütununu integer'a çevir
+                    if 'Growth (Max Reach)' in df_temp.columns:
+                        def convert_growth_to_int(growth_str):
+                            if pd.isna(growth_str) or growth_str == '':
+                                return 0
+                            try:
+                                cleaned = str(growth_str).replace(',', '').replace('%', '').strip()
+                                return int(float(cleaned))
+                            except (ValueError, TypeError):
+                                return 0
+                        
+                        df_temp['Growth (Max Reach)'] = df_temp['Growth (Max Reach)'].apply(convert_growth_to_int)
+                        print(f"DEBUG: {dosya} için Growth sütunu integer'a çevrildi")
+                    
+                    # Dosya adından Category oluştur
+                    dosya_adi = dosya.replace('.csv', '')
+                    parts = dosya_adi.split('-')
+                    if len(parts) >= 4 and parts[0] == 'trending' and parts[1] == 'keywords':
+                        category = '-'.join(parts[3:])
+                    else:
+                        category = dosya_adi.split('-')[-1] if '-' in dosya_adi else dosya_adi
+                    
+                    # Category ve Date sütunlarını ekle
+                    df_temp['Category'] = category
+                    df_temp['Date'] = tarih_bilgisi
+                    print(f"DEBUG: {dosya} için Category: {category}, Date: {tarih_bilgisi}")
+                    
+                    all_dataframes.append(df_temp)
+            
+            # Tüm DataFrame'leri birleştir
+            birlesik_df = pd.concat(all_dataframes, ignore_index=True)
+            
+            # Sütun sıralamasını düzenle: Date, Category, diğerleri
+            cols = birlesik_df.columns.tolist()
+            if 'Date' in cols:
+                cols.remove('Date')
+                cols.insert(0, 'Date')
+            if 'Category' in cols:
+                cols.remove('Category')
+                cols.insert(1, 'Category')
+            birlesik_df = birlesik_df[cols]
+            
+            # Difficulty'ye göre sırala
+            birlesik_df.sort_values(by="Difficulty", ascending=False, inplace=True)
+            
+            # Tekrarlayan keyword'leri kaldırma işlemini kaldırdık
+            # Artık tüm keyword'ler görünecek
+            
+            print("DEBUG: Tarihli birleştirilmiş DataFrame şekli:", birlesik_df.shape)
+            print("DEBUG: Sütunlar:", birlesik_df.columns.tolist())
+            return birlesik_df
+            
+        except Exception as e:
+            raise ValueError(f"Tarihli CSV birleştirme hatası: {e}")
+    
+    def single_csv_df(csv_dosya_yolu):
+        """
+        Tek bir CSV dosyasını işler ve DataFrame döndürür.
+        """
+        print("DEBUG: single_csv_df() başlatıldı. CSV dosyası:", csv_dosya_yolu)
+        try:
+            # CSV dosyasını oku
+            df = pd.read_csv(csv_dosya_yolu)
+            print(f"DEBUG: CSV okundu, şekli: {df.shape}")
+            
+            # Growth sütununu integer'a çevir
+            if 'Growth (Max Reach)' in df.columns:
+                def convert_growth_to_int(growth_str):
+                    if pd.isna(growth_str) or growth_str == '':
+                        return 0
+                    try:
+                        cleaned = str(growth_str).replace(',', '').replace('%', '').strip()
+                        return int(float(cleaned))
+                    except (ValueError, TypeError):
+                        return 0
+                
+                df['Growth (Max Reach)'] = df['Growth (Max Reach)'].apply(convert_growth_to_int)
+                print(f"DEBUG: Growth sütunu integer'a çevrildi")
+            
+            # Dosya adından Category oluştur
+            dosya_adi = os.path.basename(csv_dosya_yolu).replace('.csv', '')
+            parts = dosya_adi.split('-')
+            if len(parts) >= 4 and parts[0] == 'trending' and parts[1] == 'keywords':
+                category = '-'.join(parts[3:])
+            else:
+                category = dosya_adi.split('-')[-1] if '-' in dosya_adi else dosya_adi
+            
+            # Category sütununu ekle
+            df['Category'] = category
+            print(f"DEBUG: Category eklendi: {category}")
+            
+            # Category sütununu en başa taşı
+            cols = df.columns.tolist()
+            if 'Category' in cols:
+                cols.remove('Category')
+                cols.insert(0, 'Category')
+                df = df[cols]
+            
+            # Difficulty'ye göre sırala
+            df.sort_values(by="Difficulty", ascending=False, inplace=True)
+            
+            print("DEBUG: Tek CSV DataFrame şekli:", df.shape)
+            print("DEBUG: Sütunlar:", df.columns.tolist())
+            return df
+            
+        except Exception as e:
+            raise ValueError(f"Tek CSV işleme hatası: {e}")
         
     def kvd_df(df,limit):
         df_filtered = df[(df["Volume"] >= 20) & (df["Difficulty"] <= limit)]
@@ -603,6 +748,8 @@ class ASOApp:
         self.selected_country = "United States"
         self.app_name = ""
         self.open_ai_key = open_ai_key
+        self.date_mode = False  # Tarih modu (çoklu klasör işleme)
+        self.file_mode = False  # Dosya modu (tek CSV dosyası işleme)
         
         # DataFrame'ler
         self.merged_noduplicate_df = None
@@ -644,15 +791,15 @@ class ASOApp:
                         # Main content - Responsive Layout
         ft.Container(
             content=ft.Row([
-                # Left Panel - Controls (30% genişlik) with scroll
+                # Left Panel - Controls (25% genişlik) with scroll
                 ft.Container(
                     content=ft.Column([
                         self.create_left_panel()
                     ], scroll=ScrollMode.AUTO),
                     bgcolor=Colors.WHITE,
                     border_radius=10,
-                    padding=20,
-                    expand=3,  # 30% ekran genişliği
+                    padding=15,
+                    expand=2,  # 25% ekran genişliği
                     height=800,  # Sabit yükseklik
                     shadow=ft.BoxShadow(
                         spread_radius=1,
@@ -662,15 +809,15 @@ class ASOApp:
                 ),
                 
                 # Spacing
-                ft.Container(width=20),
+                ft.Container(width=15),
                 
-                # Right Panel - Table (70% genişlik)
+                # Right Panel - Table (75% genişlik)
                 ft.Container(
                     content=self.create_right_panel(),
                     bgcolor=Colors.WHITE,
                     border_radius=10,
-                    padding=20,
-                    expand=7,  # 70% ekran genişliği
+                    padding=15,
+                    expand=8,  # 75% ekran genişliği
                     shadow=ft.BoxShadow(
                         spread_radius=1,
                         blur_radius=10,
@@ -692,28 +839,28 @@ class ASOApp:
         self.folder_picker = ft.FilePicker(on_result=self.on_folder_selected)
         self.page.overlay.append(self.folder_picker)
         
-        # Folder selection area - Responsive
+        # Folder/File selection area - Responsive
         self.folder_display = ft.Container(
             content=ft.Column([
-                ft.Icon(Icons.FOLDER_OPEN, size=40, color=Colors.BLUE_400),
+                ft.Icon(Icons.FOLDER_OPEN, size=30, color=Colors.BLUE_400),
                 ft.Text(
-                    "CSV Klasörü Seç",
-                    size=16,
+                    "CSV Klasörü/Dosyası Seç",
+                    size=14,
                     text_align=ft.TextAlign.CENTER,
                     color=Colors.BLUE_600
                 ),
                 ft.Text(
-                    "Klasör seçmek için tıklayın",
-                    size=12,
+                    "Klasör veya dosya seçmek için tıklayın",
+                    size=10,
                     text_align=ft.TextAlign.CENTER,
                     color=Colors.GREY_600
                 )
             ], alignment=ft.MainAxisAlignment.CENTER),
-            height=120,
+            height=90,
             bgcolor=Colors.BLUE_50,
             border=ft.border.all(2, Colors.BLUE_200),
             border_radius=10,
-            padding=20,
+            padding=15,
             alignment=ft.alignment.center,
             expand=True,  # Responsive genişlik
             on_click=self.open_native_folder_picker
@@ -730,7 +877,7 @@ class ASOApp:
             controls=[],
             spacing=10,
             scroll=ScrollMode.AUTO,
-            height=150  # Sabit yükseklik
+            height=200  # Daha fazla alan
         )
         
         # Keyword search filter
@@ -828,6 +975,22 @@ class ASOApp:
             )
         ]
         
+        # Tarih modu toggle
+        self.date_mode_switch = ft.Switch(
+            label="📅 Tarih Modu (Çoklu Klasör)",
+            value=False,
+            on_change=self.on_date_mode_changed,
+            label_style=ft.TextStyle(size=12, color=Colors.PURPLE_700, weight=FontWeight.BOLD)
+        )
+        
+        # Dosya modu toggle
+        self.file_mode_switch = ft.Switch(
+            label="📄 Dosya Modu (Tek CSV)",
+            value=False,
+            on_change=self.on_file_mode_changed,
+            label_style=ft.TextStyle(size=12, color=Colors.ORANGE_700, weight=FontWeight.BOLD)
+        )
+        
         return ft.Column([
             self.folder_display,
             ft.Divider(height=20),
@@ -842,6 +1005,22 @@ class ASOApp:
                 ),
                 height=45,
                 expand=True  # Responsive genişlik
+            ),
+            ft.Divider(height=10),
+            ft.Container(
+                content=self.date_mode_switch,
+                padding=10,
+                bgcolor=Colors.PURPLE_50,
+                border_radius=8,
+                border=ft.border.all(1, Colors.PURPLE_200)
+            ),
+            ft.Divider(height=10),
+            ft.Container(
+                content=self.file_mode_switch,
+                padding=10,
+                bgcolor=Colors.ORANGE_50,
+                border_radius=8,
+                border=ft.border.all(1, Colors.ORANGE_200)
             ),
             ft.Divider(height=20),
             # Filtre ayarları için ExpansionTile
@@ -981,12 +1160,12 @@ class ASOApp:
             horizontal_lines=ft.border.BorderSide(1, Colors.GREY_300),
             heading_row_color=Colors.BLUE_50,
             heading_row_height=50,
-            column_spacing=20,  # Küçültüldü responsive için
+            column_spacing=15,  # Daha küçük spacing
             show_checkbox_column=False,
             divider_thickness=1,
             sort_column_index=self.sort_column_index,
-            sort_ascending=self.sort_ascending
-            # width kaldırıldı - responsive olacak
+            sort_ascending=self.sort_ascending,
+            expand=True  # Responsive genişlik
         )
         
         # Table container - Responsive with horizontal and vertical scrolling
@@ -994,9 +1173,9 @@ class ASOApp:
             content=ft.Row([
                 ft.Column([
                     self.data_table
-                ], scroll=ScrollMode.AUTO),
-            ], scroll=ScrollMode.AUTO),
-            height=350,  # Yükseklik azaltıldı
+                ], scroll=ScrollMode.AUTO, expand=True),
+            ], scroll=ScrollMode.AUTO, expand=True),
+            height=500,  # Yükseklik artırıldı
             border=ft.border.all(1, Colors.GREY_300),
             border_radius=10,
             padding=10,
@@ -1080,17 +1259,28 @@ class ASOApp:
 
     
     def open_native_folder_picker(self, e):
-        """Klasör seçici dialogunu açar - Tüm platformlar için Flet kullanır"""
+        """Klasör veya dosya seçici dialogunu açar - Tüm platformlar için Flet kullanır"""
+        print(f"DEBUG: open_native_folder_picker() çağrıldı. Date mode: {self.date_mode}, File mode: {self.file_mode}")
         try:
             if platform.system() == "Darwin":  # macOS
-                # macOS için osascript kullanarak native dialog aç
-                script = '''
-                tell application "System Events"
-                    activate
-                    set folderPath to choose folder with prompt "CSV dosyalarınızın bulunduğu klasörü seçin"
-                    return POSIX path of folderPath
-                end tell
-                '''
+                if self.file_mode:
+                    # Dosya modu: CSV dosyası seç
+                    script = '''
+                    tell application "System Events"
+                        activate
+                        set filePath to choose file with prompt "CSV dosyası seçin" of type {"csv"}
+                        return POSIX path of filePath
+                    end tell
+                    '''
+                else:
+                    # Klasör modu: Klasör seç
+                    script = '''
+                    tell application "System Events"
+                        activate
+                        set folderPath to choose folder with prompt "CSV dosyalarınızın bulunduğu klasörü seçin"
+                        return POSIX path of folderPath
+                    end tell
+                    '''
                 
                 result = subprocess.run(['osascript', '-e', script], 
                                       capture_output=True, text=True, timeout=30)
@@ -1099,43 +1289,123 @@ class ASOApp:
                     selected_path = result.stdout.strip()
                     
                     # Klasör yolunun geçerli olup olmadığını kontrol et
-                    if os.path.exists(selected_path) and os.path.isdir(selected_path):
-                        # CSV dosyalarını kontrol et
-                        csv_files = [f for f in os.listdir(selected_path) if f.endswith('.csv')]
-                        
-                        if csv_files:
-                            # Klasör yolunu ayarla
-                            self.folder_path = selected_path
+                    if os.path.exists(selected_path):
+                        if self.file_mode:
+                            # Dosya modu: CSV dosyası kontrol et
+                            if os.path.isfile(selected_path) and selected_path.endswith('.csv'):
+                                # CSV dosyası seçildi
+                                self.folder_path = selected_path
+                                
+                                # UI'yi güncelle
+                                self.folder_display.content = ft.Column([
+                                    ft.Icon(Icons.FILE_COPY, size=40, color=Colors.ORANGE_600),
+                                    ft.Text(
+                                        "CSV Dosyası Seçildi",
+                                        size=16,
+                                        text_align=ft.TextAlign.CENTER,
+                                        color=Colors.ORANGE_600
+                                    ),
+                                    ft.Text(
+                                        os.path.basename(selected_path),
+                                        size=12,
+                                        text_align=ft.TextAlign.CENTER,
+                                        color=Colors.GREY_600
+                                    )
+                                ], alignment=ft.MainAxisAlignment.CENTER)
+                                self.folder_display.bgcolor = Colors.ORANGE_50
+                                self.folder_display.border = ft.border.all(2, Colors.ORANGE_200)
+                                
+                                self.show_success(f"CSV dosyası seçildi: {os.path.basename(selected_path)}")
+                                self.page.update()
+                            else:
+                                self.show_error("Lütfen geçerli bir CSV dosyası seçin!")
+                        elif os.path.isdir(selected_path):
+                            # Tarih moduna göre farklı kontrol
+                            if self.date_mode:
+                                # Tarih modu: Alt klasörleri kontrol et
+                                alt_klasorler = [d for d in os.listdir(selected_path) 
+                                                if os.path.isdir(os.path.join(selected_path, d))]
                             
-                            # UI'yi güncelle
-                            self.folder_display.content = ft.Column([
-                                ft.Icon(Icons.FOLDER, size=40, color=Colors.GREEN_600),
-                                ft.Text(
-                                    "Klasör Seçildi",
-                                    size=16,
-                                    text_align=ft.TextAlign.CENTER,
-                                    color=Colors.GREEN_600
-                                ),
-                                ft.Text(
-                                    os.path.basename(selected_path),
-                                    size=12,
-                                    text_align=ft.TextAlign.CENTER,
-                                    color=Colors.GREY_600
-                                ),
-                                ft.Text(
-                                    f"{len(csv_files)} CSV dosyası bulundu",
-                                    size=10,
-                                    text_align=ft.TextAlign.CENTER,
-                                    color=Colors.GREEN_600
-                                )
-                            ], alignment=ft.MainAxisAlignment.CENTER)
-                            self.folder_display.bgcolor = Colors.GREEN_50
-                            self.folder_display.border = ft.border.all(2, Colors.GREEN_200)
-                            
-                            self.show_success(f"Klasör seçildi: {os.path.basename(selected_path)} ({len(csv_files)} CSV dosyası)")
-                            self.page.update()
+                            if alt_klasorler:
+                                # Alt klasörlerde CSV dosyalarını say
+                                total_csv_files = 0
+                                for alt_klasor in alt_klasorler:
+                                    alt_klasor_yolu = os.path.join(selected_path, alt_klasor)
+                                    csv_files = [f for f in os.listdir(alt_klasor_yolu) if f.endswith('.csv')]
+                                    total_csv_files += len(csv_files)
+                                
+                                if total_csv_files > 0:
+                                    # Klasör yolunu ayarla
+                                    self.folder_path = selected_path
+                                    
+                                    # UI'yi güncelle
+                                    self.folder_display.content = ft.Column([
+                                        ft.Icon(Icons.FOLDER, size=40, color=Colors.GREEN_600),
+                                        ft.Text(
+                                            "Ana Klasör Seçildi",
+                                            size=16,
+                                            text_align=ft.TextAlign.CENTER,
+                                            color=Colors.GREEN_600
+                                        ),
+                                        ft.Text(
+                                            os.path.basename(selected_path),
+                                            size=12,
+                                            text_align=ft.TextAlign.CENTER,
+                                            color=Colors.GREY_600
+                                        ),
+                                        ft.Text(
+                                            f"{len(alt_klasorler)} alt klasör, {total_csv_files} CSV dosyası",
+                                            size=10,
+                                            text_align=ft.TextAlign.CENTER,
+                                            color=Colors.GREEN_600
+                                        )
+                                    ], alignment=ft.MainAxisAlignment.CENTER)
+                                    self.folder_display.bgcolor = Colors.GREEN_50
+                                    self.folder_display.border = ft.border.all(2, Colors.GREEN_200)
+                                    
+                                    self.show_success(f"Ana klasör seçildi: {os.path.basename(selected_path)} ({len(alt_klasorler)} alt klasör, {total_csv_files} CSV dosyası)")
+                                    self.page.update()
+                                else:
+                                    self.show_error(f"Alt klasörlerde CSV dosyası bulunamadı: {os.path.basename(selected_path)}")
+                            else:
+                                self.show_error(f"Seçilen klasörde alt klasör bulunamadı: {os.path.basename(selected_path)}")
                         else:
-                            self.show_error(f"Seçilen klasörde CSV dosyası bulunamadı: {os.path.basename(selected_path)}")
+                            # Normal mod: CSV dosyalarını kontrol et
+                            csv_files = [f for f in os.listdir(selected_path) if f.endswith('.csv')]
+                            
+                            if csv_files:
+                                # Klasör yolunu ayarla
+                                self.folder_path = selected_path
+                                
+                                # UI'yi güncelle
+                                self.folder_display.content = ft.Column([
+                                    ft.Icon(Icons.FOLDER, size=40, color=Colors.GREEN_600),
+                                    ft.Text(
+                                        "Klasör Seçildi",
+                                        size=16,
+                                        text_align=ft.TextAlign.CENTER,
+                                        color=Colors.GREEN_600
+                                    ),
+                                    ft.Text(
+                                        os.path.basename(selected_path),
+                                        size=12,
+                                        text_align=ft.TextAlign.CENTER,
+                                        color=Colors.GREY_600
+                                    ),
+                                    ft.Text(
+                                        f"{len(csv_files)} CSV dosyası bulundu",
+                                        size=10,
+                                        text_align=ft.TextAlign.CENTER,
+                                        color=Colors.GREEN_600
+                                    )
+                                ], alignment=ft.MainAxisAlignment.CENTER)
+                                self.folder_display.bgcolor = Colors.GREEN_50
+                                self.folder_display.border = ft.border.all(2, Colors.GREEN_200)
+                                
+                                self.show_success(f"Klasör seçildi: {os.path.basename(selected_path)} ({len(csv_files)} CSV dosyası)")
+                                self.page.update()
+                            else:
+                                self.show_error(f"Seçilen klasörde CSV dosyası bulunamadı: {os.path.basename(selected_path)}")
                     else:
                         self.show_error("Geçersiz klasör yolu seçildi!")
                 else:
@@ -1292,6 +1562,26 @@ class ASOApp:
         except Exception as ex:
             print(f"Hata: {column_name} sütunu için değer güncellenemedi: {ex}")
     
+    def on_date_mode_changed(self, e):
+        """Tarih modu değiştiğinde çağrılır"""
+        self.date_mode = e.control.value
+        print(f"DEBUG: Tarih modu değişti: {self.date_mode}")
+        
+        # Diğer modları kapat
+        if self.date_mode:
+            self.file_mode = False
+            self.file_mode_switch.value = False
+        
+    def on_file_mode_changed(self, e):
+        """Dosya modu değiştiğinde çağrılır"""
+        self.file_mode = e.control.value
+        print(f"DEBUG: Dosya modu değişti: {self.file_mode}")
+        
+        # Diğer modları kapat
+        if self.file_mode:
+            self.date_mode = False
+            self.date_mode_switch.value = False
+        
     def on_non_latin_filter_changed(self, e):
         """Latin harici alfabe filtresinin durumu değiştiğinde çağrılır"""
         self.filter_non_latin = e.control.value
@@ -1720,20 +2010,49 @@ class ASOApp:
             self.show_error("Lütfen önce bir klasör seçin!")
             return
         
+        print(f"DEBUG: load_data() çağrıldı. Folder path: {self.folder_path}")
+        print(f"DEBUG: Date mode: {self.date_mode}")
+        print(f"DEBUG: File mode: {self.file_mode}")
+        
         try:
             # Show loading
-            self.show_loading("Veriler yükleniyor...")
+            if self.date_mode:
+                self.show_loading("Çoklu klasör verileri yükleniyor...")
+            elif self.file_mode:
+                self.show_loading("Tek CSV dosyası yükleniyor...")
+            else:
+                self.show_loading("Veriler yükleniyor...")
             
-            # Load only merged data
-            self.merged_noduplicate_df = Df_Get.merged_noduplicate_df(self.folder_path)
+            # Moda göre farklı fonksiyonları çağır
+            if self.date_mode:
+                # Çoklu klasör modu - tarih bilgisi ile
+                print(f"DEBUG: merged_with_date_df() çağrılıyor...")
+                self.merged_noduplicate_df = Df_Get.merged_with_date_df(self.folder_path)
+                print(f"DEBUG: merged_with_date_df() tamamlandı. DataFrame şekli: {self.merged_noduplicate_df.shape}")
+                self.show_success("Çoklu klasör verileri başarıyla yüklendi!")
+            elif self.file_mode:
+                # Tek CSV dosyası modu
+                print(f"DEBUG: single_csv_df() çağrılıyor...")
+                self.merged_noduplicate_df = Df_Get.single_csv_df(self.folder_path)
+                print(f"DEBUG: single_csv_df() tamamlandı. DataFrame şekli: {self.merged_noduplicate_df.shape}")
+                self.show_success("Tek CSV dosyası başarıyla yüklendi!")
+            else:
+                # Tek klasör modu - normal
+                print(f"DEBUG: merged_noduplicate_df() çağrılıyor...")
+                self.merged_noduplicate_df = Df_Get.merged_noduplicate_df(self.folder_path)
+                print(f"DEBUG: merged_noduplicate_df() tamamlandı. DataFrame şekli: {self.merged_noduplicate_df.shape}")
+                self.show_success("Veriler başarıyla yüklendi!")
             
             # Sütun filtrelerini oluştur
+            print(f"DEBUG: create_column_filters() çağrılıyor...")
             self.create_column_filters(self.merged_noduplicate_df)
             
             self.hide_loading()
-            self.show_success("Veriler başarıyla yüklendi!")
             
         except Exception as ex:
+            print(f"DEBUG: Hata oluştu: {str(ex)}")
+            import traceback
+            traceback.print_exc()
             self.hide_loading()
             self.show_error(f"Veri yükleme hatası: {str(ex)}")
     
