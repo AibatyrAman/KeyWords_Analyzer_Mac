@@ -1233,7 +1233,7 @@ class ASOApp:
                     active_color=active_color,
                     inactive_color=inactive_color,
                     overlay_color=overlay_color,
-                    label="{value:.1f}",
+                    label="{value}",
                     on_change=lambda e, col=column: self.on_column_range_changed(e, col),
                     expand=True
                 )
