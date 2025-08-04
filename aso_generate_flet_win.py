@@ -19,7 +19,7 @@ import platform
 import unicodedata
 
 # API anahtarı direkt kod içinde
-open_ai_key = # OpenAI client oluştur
+open_ai_key =# OpenAI client oluştur
 client = OpenAI(api_key=open_ai_key)
 
 logging.basicConfig(
@@ -57,6 +57,21 @@ class Df_Get():
             for dosya in csv_dosyalar:
                 df_temp = pd.read_csv(os.path.join(klasor_yolu, dosya))
                 print(f"DEBUG: {dosya} okundu, şekli: {df_temp.shape}")
+                
+                # Growth sütununu integer'a çevir
+                if 'Growth (Max Reach)' in df_temp.columns:
+                    def convert_growth_to_int(growth_str):
+                        if pd.isna(growth_str) or growth_str == '':
+                            return 0
+                        try:
+                            # String'i temizle: "2,333%" -> "2333"
+                            cleaned = str(growth_str).replace(',', '').replace('%', '').strip()
+                            return int(float(cleaned))
+                        except (ValueError, TypeError):
+                            return 0
+                    
+                    df_temp['Growth (Max Reach)'] = df_temp['Growth (Max Reach)'].apply(convert_growth_to_int)
+                    print(f"DEBUG: {dosya} için Growth sütunu integer'a çevrildi")
                 
                 # Dosya adından Category oluştur
                 # "trending-keywords-US-Business.csv" -> "Business"
@@ -1628,7 +1643,7 @@ class ASOApp:
             column_name = self.current_table.columns[e.column_index]
             
             # DataFrame'i sırala
-            if column_name in ['Volume', 'Difficulty', 'Frekans']:
+            if column_name in ['Volume', 'Difficulty', 'Frekans', 'Growth (Max Reach)']:
                 # Sayısal sütunlar için numeric sorting
                 self.current_table = self.current_table.sort_values(
                     by=column_name, 
@@ -1664,7 +1679,7 @@ class ASOApp:
         # Add columns with sorting capability
         for idx, col in enumerate(self.current_table.columns):
             # Sütun türüne göre numeric belirleme
-            is_numeric = col in ['Volume', 'Difficulty', 'Frekans']
+            is_numeric = col in ['Volume', 'Difficulty', 'Frekans', 'Growth (Max Reach)']
             
             self.data_table.columns.append(
                 ft.DataColumn(
@@ -1801,7 +1816,7 @@ class ASOApp:
         # Add columns with sorting capability
         for idx, col in enumerate(df.columns):
             # Sütun türüne göre numeric belirleme
-            is_numeric = col in ['Volume', 'Difficulty', 'Frekans']
+            is_numeric = col in ['Volume', 'Difficulty', 'Frekans', 'Growth (Max Reach)']
             
             self.data_table.columns.append(
                 ft.DataColumn(
