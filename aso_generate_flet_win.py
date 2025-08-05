@@ -19,7 +19,8 @@ import platform
 import unicodedata
 
 # API anahtarı direkt kod içinde
-open_ai_key = "your-api-key-here"  # Buraya OpenAI API anahtarınızı girin
+
+open_ai_key =
 # OpenAI client oluştur
 client = OpenAI(api_key=open_ai_key)
 
