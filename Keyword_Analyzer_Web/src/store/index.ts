@@ -25,6 +25,7 @@ interface AppStore extends AppState {
   removeExcludeTerm: (term: string) => void;
   setFilterNonLatin: (filter: boolean) => void;
   clearFilters: () => void;
+  applyFilters: () => void;
   
   // Table actions
   setSortColumn: (column: string | null) => void;
@@ -39,6 +40,30 @@ const initialFilters: FilterState = {
   searchTerms: [],
   excludeTerms: [],
   filterNonLatin: false,
+};
+
+// Güvenli sayı dönüşümü yardımcı fonksiyonu
+const safeNumberConversion = (value: any): number => {
+  if (value === null || value === undefined || value === '') {
+    return 0;
+  }
+  
+  try {
+    if (typeof value === 'number') {
+      return isNaN(value) ? 0 : value;
+    }
+    
+    const stringValue = String(value);
+    const cleaned = stringValue.replace(/,/g, '').replace(/%/g, '').replace(/\s/g, '').trim();
+    if (cleaned === '' || cleaned === '-') {
+      return 0;
+    }
+    
+    const parsed = parseFloat(cleaned);
+    return isNaN(parsed) ? 0 : parsed;
+  } catch {
+    return 0;
+  }
 };
 
 export const useAppStore = create<AppStore>((set, get) => ({
@@ -87,7 +112,10 @@ export const useAppStore = create<AppStore>((set, get) => ({
         ...state.filters,
         columnFilters: {
           ...state.filters.columnFilters,
-          [column]: { min, max },
+          [column]: { 
+            min: safeNumberConversion(min), 
+            max: safeNumberConversion(max) 
+          },
         },
       },
     }));
@@ -95,7 +123,9 @@ export const useAppStore = create<AppStore>((set, get) => ({
   
   addSearchTerm: (term) => {
     set((state) => {
-      const normalizedTerm = term.toLowerCase();
+      const normalizedTerm = term.toLowerCase().trim();
+      if (!normalizedTerm) return state;
+      
       const exists = state.filters.searchTerms.some(
         (t) => t.toLowerCase() === normalizedTerm
       );
@@ -104,7 +134,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
         return {
           filters: {
             ...state.filters,
-            searchTerms: [...state.filters.searchTerms, term],
+            searchTerms: [...state.filters.searchTerms, term.trim()],
           },
         };
       }
@@ -123,7 +153,9 @@ export const useAppStore = create<AppStore>((set, get) => ({
   
   addExcludeTerm: (term) => {
     set((state) => {
-      const normalizedTerm = term.toLowerCase();
+      const normalizedTerm = term.toLowerCase().trim();
+      if (!normalizedTerm) return state;
+      
       const exists = state.filters.excludeTerms.some(
         (t) => t.toLowerCase() === normalizedTerm
       );
@@ -132,7 +164,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
         return {
           filters: {
             ...state.filters,
-            excludeTerms: [...state.filters.excludeTerms, term],
+            excludeTerms: [...state.filters.excludeTerms, term.trim()],
           },
         };
       }
@@ -162,6 +194,51 @@ export const useAppStore = create<AppStore>((set, get) => ({
     set((state) => ({
       filters: initialFilters,
     }));
+  },
+  
+  applyFilters: () => {
+    const state = get();
+    if (!state.mergedData) return;
+    
+    let filteredData = [...state.mergedData];
+    
+    // Sütun filtrelerini uygula
+    Object.entries(state.filters.columnFilters).forEach(([column, filter]) => {
+      filteredData = filteredData.filter((row) => {
+        const value = safeNumberConversion(row[column as keyof KeywordData]);
+        return value >= filter.min && value <= filter.max;
+      });
+    });
+    
+    // Arama terimlerini uygula
+    if (state.filters.searchTerms.length > 0) {
+      filteredData = filteredData.filter((row) => {
+        const keyword = String(row.Keyword || '').toLowerCase();
+        return state.filters.searchTerms.some((term) =>
+          keyword.includes(term.toLowerCase())
+        );
+      });
+    }
+    
+    // Çıkarılacak terimleri uygula
+    if (state.filters.excludeTerms.length > 0) {
+      filteredData = filteredData.filter((row) => {
+        const keyword = String(row.Keyword || '').toLowerCase();
+        return !state.filters.excludeTerms.some((term) =>
+          keyword.includes(term.toLowerCase())
+        );
+      });
+    }
+    
+    // Latin harici alfabeleri çıkar
+    if (state.filters.filterNonLatin) {
+      filteredData = filteredData.filter((row) => {
+        const keyword = String(row.Keyword || '');
+        return /^[a-zA-Z0-9\s\-_.,!?()]+$/.test(keyword);
+      });
+    }
+    
+    set({ currentTable: filteredData });
   },
   
   setSortColumn: (column) => set({ sortColumn: column }),

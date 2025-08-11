@@ -12,10 +12,14 @@ export class CsvProcessor {
       try {
         const data = await this.parseCsvFile(file);
         
-        // Growth sütununu integer'a çevir
+        // Veri tiplerini düzgün şekilde dönüştür
         const processedData = data.map(row => ({
           ...row,
-          'Growth (Max Reach)': this.convertGrowthToInt(row['Growth (Max Reach)']),
+          Volume: this.convertToNumber(row.Volume),
+          Difficulty: this.convertToNumber(row.Difficulty),
+          'Growth (Max Reach)': this.convertToNumber(row['Growth (Max Reach)']),
+          'Max. Reach': this.convertToNumber(row['Max. Reach']),
+          'No. of results': this.convertToNumber(row['No. of results']),
           Category: this.extractCategoryFromFileName(file.name),
         }));
         
@@ -45,7 +49,11 @@ export class CsvProcessor {
           
           const processedData = data.map(row => ({
             ...row,
-            'Growth (Max Reach)': this.convertGrowthToInt(row['Growth (Max Reach)']),
+            Volume: this.convertToNumber(row.Volume),
+            Difficulty: this.convertToNumber(row.Difficulty),
+            'Growth (Max Reach)': this.convertToNumber(row['Growth (Max Reach)']),
+            'Max. Reach': this.convertToNumber(row['Max. Reach']),
+            'No. of results': this.convertToNumber(row['No. of results']),
             Category: this.extractCategoryFromFileName(file.name),
             Date: dateInfo,
           }));
@@ -70,7 +78,11 @@ export class CsvProcessor {
       
       const processedData = data.map(row => ({
         ...row,
-        'Growth (Max Reach)': this.convertGrowthToInt(row['Growth (Max Reach)']),
+        Volume: this.convertToNumber(row.Volume),
+        Difficulty: this.convertToNumber(row.Difficulty),
+        'Growth (Max Reach)': this.convertToNumber(row['Growth (Max Reach)']),
+        'Max. Reach': this.convertToNumber(row['Max. Reach']),
+        'No. of results': this.convertToNumber(row['No. of results']),
         Category: this.extractCategoryFromFileName(file.name),
       }));
       
@@ -192,19 +204,44 @@ export class CsvProcessor {
   }
   
   /**
-   * Growth değerini integer'a çevir
+   * Herhangi bir değeri güvenli şekilde number'a çevir
    */
-  private static convertGrowthToInt(growth: any): number {
-    if (!growth || growth === '') {
+  private static convertToNumber(value: any): number {
+    if (value === null || value === undefined || value === '') {
       return 0;
     }
     
     try {
-      const cleaned = String(growth).replace(/,/g, '').replace(/%/g, '').trim();
-      return parseInt(cleaned, 10);
+      // String ise temizle
+      if (typeof value === 'string') {
+        const cleaned = value.replace(/,/g, '').replace(/%/g, '').replace(/\s/g, '').trim();
+        if (cleaned === '' || cleaned === '-') {
+          return 0;
+        }
+        const parsed = parseFloat(cleaned);
+        return isNaN(parsed) ? 0 : parsed;
+      }
+      
+      // Number ise direkt döndür
+      if (typeof value === 'number') {
+        return isNaN(value) ? 0 : value;
+      }
+      
+      // Diğer tipler için string'e çevir ve parse et
+      const stringValue = String(value);
+      const cleaned = stringValue.replace(/,/g, '').replace(/%/g, '').replace(/\s/g, '').trim();
+      const parsed = parseFloat(cleaned);
+      return isNaN(parsed) ? 0 : parsed;
     } catch {
       return 0;
     }
+  }
+  
+  /**
+   * Growth değerini integer'a çevir (geriye uyumluluk için)
+   */
+  private static convertGrowthToInt(growth: any): number {
+    return this.convertToNumber(growth);
   }
   
   /**

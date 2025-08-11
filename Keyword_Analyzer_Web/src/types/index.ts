@@ -4,6 +4,8 @@ export interface KeywordData {
   Volume: number;
   Difficulty: number;
   'Growth (Max Reach)'?: number;
+  'Max. Reach'?: number;
+  'No. of results'?: number;
   Date?: string;
 }
 

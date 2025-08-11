@@ -37,17 +37,24 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({ data }) => {
     removeExcludeTerm,
     setFilterNonLatin,
     clearFilters,
+    applyFilters,
   } = useAppStore();
 
   const [searchInput, setSearchInput] = useState('');
-  const [columnFilters, setColumnFilters] = useState<Record<string, { min: number; max: number; display: string }>>({});
+  const [columnFilters, setColumnFilters] = useState<Record<string, { min: number; max: number; display: string; originalMin: number; originalMax: number }>>({});
+  
+  // Geçici filtre state'leri
+  const [tempSearchTerms, setTempSearchTerms] = useState<string[]>([]);
+  const [tempExcludeTerms, setTempExcludeTerms] = useState<string[]>([]);
+  const [tempFilterNonLatin, setTempFilterNonLatin] = useState(false);
+  const [tempColumnFilters, setTempColumnFilters] = useState<Record<string, { min: number; max: number }>>({});
 
   // Sayısal sütunları bul ve filtreleri oluştur
   useEffect(() => {
     if (!data || data.length === 0) return;
 
     const numericColumns = ['Volume', 'Difficulty', 'Growth (Max Reach)'];
-    const newColumnFilters: Record<string, { min: number; max: number; display: string }> = {};
+    const newColumnFilters: Record<string, { min: number; max: number; display: string; originalMin: number; originalMax: number }> = {};
 
     numericColumns.forEach(column => {
       const values = data
@@ -56,13 +63,15 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({ data }) => {
         .map(val => val as number);
 
       if (values.length > 0) {
-        const min = Math.min(...values);
-        const max = Math.max(...values);
+        const originalMin = Math.min(...values);
+        const originalMax = Math.max(...values);
         
         newColumnFilters[column] = {
-          min,
-          max,
-          display: `${column}: ${min} - ${max}`,
+          min: originalMin,
+          max: originalMax,
+          originalMin,
+          originalMax,
+          display: `${column}: ${originalMin} - ${originalMax}`,
         };
       }
     });
@@ -70,27 +79,46 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({ data }) => {
     setColumnFilters(newColumnFilters);
   }, [data]);
 
+  // Filtreleri geçici state'lerden gerçek state'lere senkronize et
+  useEffect(() => {
+    setTempSearchTerms(filters.searchTerms);
+    setTempExcludeTerms(filters.excludeTerms);
+    setTempFilterNonLatin(filters.filterNonLatin);
+    
+    // Sütun filtrelerini senkronize et, ama sadece ilk yüklemede
+    if (Object.keys(filters.columnFilters).length > 0 && Object.keys(tempColumnFilters).length === 0) {
+      setTempColumnFilters(filters.columnFilters);
+    }
+  }, [filters, tempColumnFilters]);
+
   const handleSearchSubmit = () => {
     if (searchInput.trim()) {
-      addSearchTerm(searchInput.trim());
+      const term = searchInput.trim();
+      if (!tempSearchTerms.includes(term)) {
+        setTempSearchTerms([...tempSearchTerms, term]);
+      }
       setSearchInput('');
     }
   };
 
   const handleExcludeSubmit = () => {
     if (searchInput.trim()) {
-      addExcludeTerm(searchInput.trim());
+      const term = searchInput.trim();
+      if (!tempExcludeTerms.includes(term)) {
+        setTempExcludeTerms([...tempExcludeTerms, term]);
+      }
       setSearchInput('');
     }
   };
 
-  const handleColumnFilterChange = (column: string, value: number[], type: 'min' | 'max') => {
+  const handleColumnFilterChange = (column: string, newMin: number, newMax: number) => {
     const currentFilter = columnFilters[column];
     if (currentFilter) {
       const newFilter = {
         ...currentFilter,
-        [type]: value[0],
-        display: `${column}: ${type === 'min' ? value[0] : currentFilter.min} - ${type === 'max' ? value[0] : currentFilter.max}`,
+        min: newMin,
+        max: newMax,
+        display: `${column}: ${newMin} - ${newMax}`,
       };
       
       setColumnFilters(prev => ({
@@ -98,8 +126,32 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({ data }) => {
         [column]: newFilter,
       }));
       
-      setColumnFilter(column, newFilter.min, newFilter.max);
+      // Geçici sütun filtrelerini güncelle
+      setTempColumnFilters(prev => ({
+        ...prev,
+        [column]: { min: newMin, max: newMax },
+      }));
     }
+  };
+
+  const handleApplyFilters = () => {
+    // Önce mevcut filtreleri temizle
+    clearFilters();
+    
+    // Geçici filtreleri gerçek filtre state'lerine aktar
+    tempSearchTerms.forEach(term => addSearchTerm(term));
+    tempExcludeTerms.forEach(term => addExcludeTerm(term));
+    setFilterNonLatin(tempFilterNonLatin);
+    
+    // Sütun filtrelerini uygula
+    Object.entries(tempColumnFilters).forEach(([column, filter]) => {
+      setColumnFilter(column, filter.min, filter.max);
+    });
+    
+    // Filtreleri uygula
+    setTimeout(() => {
+      applyFilters();
+    }, 100);
   };
 
   return (
@@ -123,26 +175,31 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({ data }) => {
             </Typography>
           ) : (
             <Stack spacing={2}>
-              {Object.entries(columnFilters).map(([column, filter]) => (
-                <Box key={column}>
-                  <Typography variant="body2" color="primary" fontWeight="bold" gutterBottom>
-                    {filter.display}
-                  </Typography>
-                  <Slider
-                    value={[filter.min, filter.max]}
-                    onChange={(_, value) => {
-                      if (Array.isArray(value)) {
-                        handleColumnFilterChange(column, [value[0]], 'min');
-                        handleColumnFilterChange(column, [value[1]], 'max');
-                      }
-                    }}
-                    min={filter.min}
-                    max={filter.max}
-                    valueLabelDisplay="auto"
-                    sx={{ mt: 1 }}
-                  />
-                </Box>
-              ))}
+              {Object.entries(columnFilters).map(([column, filter]) => {
+                const tempFilter = tempColumnFilters[column];
+                const currentMin = tempFilter ? tempFilter.min : filter.min;
+                const currentMax = tempFilter ? tempFilter.max : filter.max;
+                
+                return (
+                  <Box key={column}>
+                    <Typography variant="body2" color="primary" fontWeight="bold" gutterBottom>
+                      {`${column}: ${currentMin} - ${currentMax}`}
+                    </Typography>
+                    <Slider
+                      value={[currentMin, currentMax]}
+                      onChange={(_, value) => {
+                        if (Array.isArray(value)) {
+                          handleColumnFilterChange(column, value[0], value[1]);
+                        }
+                      }}
+                      min={filter.originalMin}
+                      max={filter.originalMax}
+                      valueLabelDisplay="auto"
+                      sx={{ mt: 1 }}
+                    />
+                  </Box>
+                );
+              })}
             </Stack>
           )}
         </AccordionDetails>
@@ -195,32 +252,32 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({ data }) => {
                 🏷️ Arama Terimleri:
               </Typography>
               
-              {filters.searchTerms.length === 0 && filters.excludeTerms.length === 0 ? (
+              {tempSearchTerms.length === 0 && tempExcludeTerms.length === 0 ? (
                 <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
                   Henüz arama terimi eklenmedi
                 </Typography>
               ) : (
                 <Stack direction="row" spacing={1} flexWrap="wrap" gap={1}>
                   {/* Dahil edilecek terimler */}
-                  {filters.searchTerms.map((term, index) => (
+                  {tempSearchTerms.map((term, index) => (
                     <Chip
                       key={`include-${index}`}
                       label={term}
                       color="primary"
                       size="small"
-                      onDelete={() => removeSearchTerm(term)}
+                      onDelete={() => setTempSearchTerms(tempSearchTerms.filter(t => t !== term))}
                       icon={<Add />}
                     />
                   ))}
                   
                   {/* Çıkarılacak terimler */}
-                  {filters.excludeTerms.map((term, index) => (
+                  {tempExcludeTerms.map((term, index) => (
                     <Chip
                       key={`exclude-${index}`}
                       label={term}
                       color="error"
                       size="small"
-                      onDelete={() => removeExcludeTerm(term)}
+                      onDelete={() => setTempExcludeTerms(tempExcludeTerms.filter(t => t !== term))}
                       icon={<Remove />}
                     />
                   ))}
@@ -243,8 +300,8 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({ data }) => {
             <FormControlLabel
               control={
                 <Checkbox
-                  checked={filters.filterNonLatin}
-                  onChange={(e) => setFilterNonLatin(e.target.checked)}
+                  checked={tempFilterNonLatin}
+                  onChange={(e) => setTempFilterNonLatin(e.target.checked)}
                   color="warning"
                 />
               }
@@ -254,7 +311,19 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({ data }) => {
             <Button
               variant="outlined"
               color="error"
-              onClick={clearFilters}
+              onClick={() => {
+                clearFilters();
+                setTempSearchTerms([]);
+                setTempExcludeTerms([]);
+                setTempFilterNonLatin(false);
+                
+                // Sütun filtrelerini orijinal değerlere sıfırla
+                const resetColumnFilters: Record<string, { min: number; max: number }> = {};
+                Object.entries(columnFilters).forEach(([column, filter]) => {
+                  resetColumnFilters[column] = { min: filter.originalMin, max: filter.originalMax };
+                });
+                setTempColumnFilters(resetColumnFilters);
+              }}
               startIcon={<Close />}
             >
               Tüm Filtreleri Temizle
@@ -262,6 +331,24 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({ data }) => {
           </Stack>
         </AccordionDetails>
       </Accordion>
+      
+      {/* Filtreleri Uygula Butonu */}
+      <Box sx={{ mt: 3, p: 2, bgcolor: 'background.paper', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
+        <Button
+          variant="contained"
+          color="primary"
+          onClick={handleApplyFilters}
+          fullWidth
+          size="large"
+          sx={{ 
+            py: 1.5,
+            fontSize: '1.1rem',
+            fontWeight: 'bold'
+          }}
+        >
+          🔍 Filtreleri Uygula
+        </Button>
+      </Box>
     </Box>
   );
 }; 

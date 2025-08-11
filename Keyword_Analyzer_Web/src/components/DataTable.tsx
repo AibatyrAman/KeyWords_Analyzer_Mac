@@ -54,6 +54,36 @@ export const DataTable: React.FC<DataTableProps> = ({ data, title }) => {
     return /^[a-zA-Z\s]+$/.test(letters);
   };
 
+  // Sayısal değer kontrolü
+  const isNumericColumn = (column: string): boolean => {
+    const numericColumns = ['Volume', 'Difficulty', 'Growth (Max Reach)', 'Max. Reach', 'No. of results'];
+    return numericColumns.includes(column);
+  };
+
+  // Güvenli sayı dönüşümü
+  const safeNumberConversion = (value: any): number => {
+    if (value === null || value === undefined || value === '') {
+      return 0;
+    }
+    
+    try {
+      if (typeof value === 'number') {
+        return isNaN(value) ? 0 : value;
+      }
+      
+      const stringValue = String(value);
+      const cleaned = stringValue.replace(/,/g, '').replace(/%/g, '').replace(/\s/g, '').trim();
+      if (cleaned === '' || cleaned === '-') {
+        return 0;
+      }
+      
+      const parsed = parseFloat(cleaned);
+      return isNaN(parsed) ? 0 : parsed;
+    } catch {
+      return 0;
+    }
+  };
+
   // Filtrelenmiş ve sıralanmış veri
   const processedData = useMemo(() => {
     if (!data) return [];
@@ -64,17 +94,24 @@ export const DataTable: React.FC<DataTableProps> = ({ data, title }) => {
     Object.entries(filters.columnFilters).forEach(([column, filter]) => {
       filteredData = filteredData.filter(row => {
         const value = row[column as keyof KeywordData];
-        if (typeof value === 'number') {
-          return value >= filter.min && value <= filter.max;
+        const numericValue = safeNumberConversion(value);
+        
+        // Sayısal sütunlar için range kontrolü
+        if (isNumericColumn(column)) {
+          return numericValue >= filter.min && numericValue <= filter.max;
         }
-        return true;
+        
+        // String sütunlar için string kontrolü
+        const stringValue = String(value || '').toLowerCase();
+        return stringValue.includes(String(filter.min).toLowerCase()) || 
+               stringValue.includes(String(filter.max).toLowerCase());
       });
     });
 
     // Keyword arama filtreleri
     if (filters.searchTerms.length > 0) {
       filteredData = filteredData.filter(row => {
-        const keyword = row.Keyword.toLowerCase();
+        const keyword = String(row.Keyword || '').toLowerCase();
         return filters.searchTerms.some(term => {
           const termLower = term.toLowerCase();
           return keyword.includes(termLower) || 
@@ -87,7 +124,7 @@ export const DataTable: React.FC<DataTableProps> = ({ data, title }) => {
     // Çıkarılacak kelimeler filtresi
     if (filters.excludeTerms.length > 0) {
       filteredData = filteredData.filter(row => {
-        const keyword = row.Keyword.toLowerCase();
+        const keyword = String(row.Keyword || '').toLowerCase();
         return !filters.excludeTerms.some(term => {
           const termLower = term.toLowerCase();
           return keyword.includes(termLower) || 
@@ -100,7 +137,7 @@ export const DataTable: React.FC<DataTableProps> = ({ data, title }) => {
     // Latin alfabesi filtresi
     if (filters.filterNonLatin) {
       filteredData = filteredData.filter(row => {
-        return isLatinOnly(row.Keyword);
+        return isLatinOnly(String(row.Keyword || ''));
       });
     }
 
@@ -110,10 +147,19 @@ export const DataTable: React.FC<DataTableProps> = ({ data, title }) => {
         const aValue = a[sortColumn as keyof KeywordData];
         const bValue = b[sortColumn as keyof KeywordData];
 
-        if (typeof aValue === 'number' && typeof bValue === 'number') {
-          return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
+        // Sayısal sütunlar için sayısal sıralama
+        if (isNumericColumn(sortColumn)) {
+          const aNum = safeNumberConversion(aValue);
+          const bNum = safeNumberConversion(bValue);
+          
+          if (sortDirection === 'asc') {
+            return aNum - bNum;
+          } else {
+            return bNum - aNum;
+          }
         }
 
+        // String sütunlar için string sıralama
         const aStr = String(aValue || '');
         const bStr = String(bValue || '');
         
@@ -161,11 +207,44 @@ export const DataTable: React.FC<DataTableProps> = ({ data, title }) => {
 
   const formatCellValue = (value: any): string => {
     if (value === null || value === undefined) return '-';
+    
+    // Sayısal değerler için özel formatlama
     if (typeof value === 'number') {
       return value.toLocaleString();
     }
+    
+    // String sayıları da kontrol et
+    const numericValue = safeNumberConversion(value);
+    if (numericValue !== 0 || String(value).trim() === '0') {
+      return numericValue.toLocaleString();
+    }
+    
     return String(value);
   };
+
+  // Güvenli ortalama hesaplama
+  const calculateSafeAverage = (values: number[]): number => {
+    if (values.length === 0) return 0;
+    
+    const validValues = values.filter(v => !isNaN(v) && isFinite(v));
+    if (validValues.length === 0) return 0;
+    
+    const sum = validValues.reduce((acc, val) => acc + val, 0);
+    return sum / validValues.length;
+  };
+
+  // Ortalama hesaplamaları
+  const averageVolume = useMemo(() => {
+    if (!processedData || processedData.length === 0) return 0;
+    const volumes = processedData.map(row => safeNumberConversion(row.Volume));
+    return calculateSafeAverage(volumes);
+  }, [processedData]);
+
+  const averageDifficulty = useMemo(() => {
+    if (!processedData || processedData.length === 0) return 0;
+    const difficulties = processedData.map(row => safeNumberConversion(row.Difficulty));
+    return calculateSafeAverage(difficulties);
+  }, [processedData]);
 
   return (
     <Box sx={{ width: '100%' }}>
@@ -280,8 +359,8 @@ export const DataTable: React.FC<DataTableProps> = ({ data, title }) => {
         <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
           <Typography variant="body2" color="text.secondary">
             Toplam: {processedData.length} kayıt | 
-            Ortalama Volume: {Math.round(processedData.reduce((sum, row) => sum + row.Volume, 0) / processedData.length)} | 
-            Ortalama Difficulty: {Math.round(processedData.reduce((sum, row) => sum + row.Difficulty, 0) / processedData.length)}
+            Ortalama Volume: {Math.round(averageVolume)} | 
+            Ortalama Difficulty: {Math.round(averageDifficulty)}
           </Typography>
         </Box>
       )}
