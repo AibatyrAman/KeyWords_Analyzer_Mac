@@ -56,7 +56,7 @@ export const DataTable: React.FC<DataTableProps> = ({ data, title }) => {
 
   // Sayısal değer kontrolü
   const isNumericColumn = (column: string): boolean => {
-    const numericColumns = ['Volume', 'Difficulty', 'Growth (Max Reach)', 'Max. Reach', 'No. of results'];
+    const numericColumns = ['Volume', 'Difficulty', 'Growth (Max Reach)', 'Max. Reach', 'No. of results', 'Title_Length', 'Subtitle_Length', 'Keywords_Length', 'Total_Volume', 'Total_Difficulty', 'Average_Volume', 'Average_Difficulty', 'Matched_Keywords_Count'];
     return numericColumns.includes(column);
   };
 
@@ -190,8 +190,22 @@ export const DataTable: React.FC<DataTableProps> = ({ data, title }) => {
     }
 
     try {
+      // Export öncesi veriyi kontrol et ve sayısal değerleri düzelt
+      const exportData = processedData.map(row => {
+        const cleanRow: any = {};
+        Object.entries(row).forEach(([key, value]) => {
+          // Sayısal sütunlar için özel kontrol
+          if (isNumericColumn(key)) {
+            cleanRow[key] = safeNumberConversion(value);
+          } else {
+            cleanRow[key] = value;
+          }
+        });
+        return cleanRow;
+      });
+
       const sanitizedFilename = ExportUtils.sanitizeFilename(exportFilename);
-      ExportUtils.exportToExcel(processedData, sanitizedFilename);
+      ExportUtils.exportToExcel(exportData, sanitizedFilename);
       setSuccess(`Excel dosyası başarıyla indirildi: ${sanitizedFilename}`);
     } catch (error) {
       setError(`Export hatası: ${error instanceof Error ? error.message : 'Bilinmeyen hata'}`);
@@ -291,6 +305,21 @@ export const DataTable: React.FC<DataTableProps> = ({ data, title }) => {
           >
             📥 Excel İndir
           </Button>
+          
+          {/* Debug butonu - sadece development'ta görünür */}
+          {process.env.NODE_ENV === 'development' && (
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => {
+                ExportUtils.debugDataFormat(processedData);
+                console.log('Debug: Export öncesi veri kontrol edildi');
+              }}
+              disabled={!processedData || processedData.length === 0}
+            >
+              🐛 Debug
+            </Button>
+          )}
         </Stack>
       </Box>
 
