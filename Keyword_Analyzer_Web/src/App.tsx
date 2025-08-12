@@ -24,7 +24,7 @@ import { DataTable } from './components/DataTable';
 import { MessageDisplay } from './components/MessageDisplay';
 import { LoadingOverlay } from './components/LoadingOverlay';
 import { CsvProcessor } from './utils/csvProcessor';
-import { KeywordData } from './types';
+import { KeywordData, ColumnInfo } from './types';
 
 const theme = createTheme({
   palette: {
@@ -44,8 +44,10 @@ function App() {
   const {
     mergedData,
     currentTable,
+    columnInfo,
     setMergedData,
     setCurrentTable,
+    setColumnInfo,
     setLoading,
     setError,
     setSuccess,
@@ -69,26 +71,27 @@ function App() {
     setError(null);
 
     try {
-      let processedData: KeywordData[];
+      let result: { data: KeywordData[], columnInfo: ColumnInfo[] };
 
       if (fileMode) {
         // Tek dosya modu
-        processedData = await CsvProcessor.processSingleCsvFile(selectedFiles[0]);
+        result = await CsvProcessor.processSingleCsvFile(selectedFiles[0]);
         setSuccess('Tek CSV dosyası başarıyla yüklendi');
       } else if (dateMode) {
         // Tarih modu - klasör yapısını grupla
         const folderStructure = groupFilesByFolder(selectedFiles);
         const folderArrays = Object.values(folderStructure);
-        processedData = await CsvProcessor.mergeWithDateData(folderArrays);
+        result = await CsvProcessor.mergeWithDateData(folderArrays);
         setSuccess('Çoklu klasör verileri başarıyla yüklendi');
       } else {
         // Normal mod
-        processedData = await CsvProcessor.mergeNoDuplicateData(selectedFiles);
+        result = await CsvProcessor.mergeNoDuplicateData(selectedFiles);
         setSuccess('Veriler başarıyla yüklendi');
       }
 
-      setMergedData(processedData);
-      setCurrentTable(processedData);
+      setMergedData(result.data);
+      setCurrentTable(result.data);
+      setColumnInfo(result.columnInfo);
     } catch (error) {
       setError(`Veri yükleme hatası: ${error instanceof Error ? error.message : 'Bilinmeyen hata'}`);
     } finally {
@@ -152,7 +155,7 @@ function App() {
                 ASO Keywords Analyzer
               </Typography>
               <Typography variant="subtitle1" sx={{ opacity: 0.9 }}>
-                Professional Edition
+                Professional Edition - Dinamik Sütun Desteği
               </Typography>
             </Box>
           </Stack>
@@ -205,7 +208,7 @@ function App() {
               <Divider sx={{ my: 3 }} />
 
               {/* Filter Panel */}
-              <FilterPanel data={mergedData} />
+              <FilterPanel data={mergedData} columnInfo={columnInfo} />
             </Paper>
           </Grid>
 

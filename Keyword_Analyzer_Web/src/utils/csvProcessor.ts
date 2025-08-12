@@ -1,43 +1,290 @@
 import Papa from 'papaparse';
-import { KeywordData } from '../types';
+import { KeywordData, ColumnInfo } from '../types';
 
 export class CsvProcessor {
   /**
+   * CSV dosyasından sütun bilgilerini analiz et
+   */
+  static analyzeColumns(data: any[]): ColumnInfo[] {
+    if (data.length === 0) return [];
+
+    const columns = Object.keys(data[0]);
+    const columnInfo: ColumnInfo[] = [];
+
+    columns.forEach(columnName => {
+      const values = data.map(row => row[columnName]);
+      const nonNullValues = values.filter(val => val !== null && val !== undefined && val !== '');
+      
+      // Veri tipini belirle
+      const type = this.determineColumnType(values);
+      
+      // Boolean değerleri kontrol et
+      const booleanValues = type === 'boolean' ? 
+        Array.from(new Set(values.filter(val => val === true || val === false))) as boolean[] : 
+        undefined;
+
+      // Sayısal değerler için min/max hesapla
+      let min: number | undefined;
+      let max: number | undefined;
+      
+      if (type === 'number' || type === 'percentage') {
+        const numericValues = nonNullValues.map(val => this.convertToNumber(val));
+        const validNumericValues = numericValues.filter(val => !isNaN(val) && isFinite(val));
+        
+        if (validNumericValues.length > 0) {
+          min = Math.min(...validNumericValues);
+          max = Math.max(...validNumericValues);
+        }
+      }
+
+      // Benzersiz değerleri al (string sütunlar için)
+      const uniqueValues = type === 'string' ? 
+        Array.from(new Set(nonNullValues)) : 
+        undefined;
+
+      columnInfo.push({
+        name: columnName,
+        type,
+        min,
+        max,
+        hasNulls: values.length !== nonNullValues.length,
+        uniqueValues,
+        booleanValues
+      });
+    });
+
+    return columnInfo;
+  }
+
+  /**
+   * Sütun tipini belirle
+   */
+  private static determineColumnType(values: any[]): 'string' | 'number' | 'boolean' | 'percentage' | 'date' {
+    const nonNullValues = values.filter(val => val !== null && val !== undefined && val !== '');
+    
+    if (nonNullValues.length === 0) return 'string';
+
+    // Boolean kontrolü
+    const booleanCount = nonNullValues.filter(val => 
+      val === true || val === false || 
+      val === 'true' || val === 'false' ||
+      val === 'True' || val === 'False'
+    ).length;
+    
+    if (booleanCount === nonNullValues.length) return 'boolean';
+
+    // Yüzde kontrolü
+    const percentageCount = nonNullValues.filter(val => 
+      typeof val === 'string' && val.includes('%')
+    ).length;
+    
+    if (percentageCount > 0) return 'percentage';
+
+    // Sayı kontrolü
+    const numericCount = nonNullValues.filter(val => {
+      if (typeof val === 'number') return !isNaN(val);
+      if (typeof val === 'string') {
+        const cleaned = val.replace(/,/g, '').replace(/%/g, '').replace(/\s/g, '').trim();
+        return !isNaN(parseFloat(cleaned)) && cleaned !== '';
+      }
+      return false;
+    }).length;
+
+    if (numericCount === nonNullValues.length) return 'number';
+
+    // Tarih kontrolü (basit)
+    const dateCount = nonNullValues.filter(val => {
+      if (typeof val === 'string') {
+        // Basit tarih formatları kontrolü
+        const datePatterns = [
+          /^\d{4}-\d{2}-\d{2}$/, // YYYY-MM-DD
+          /^\d{2}\/\d{2}\/\d{4}$/, // MM/DD/YYYY
+          /^\d{2}-\d{2}-\d{4}$/, // MM-DD-YYYY
+        ];
+        return datePatterns.some(pattern => pattern.test(val));
+      }
+      return false;
+    }).length;
+
+    if (dateCount > nonNullValues.length * 0.8) return 'date';
+
+    return 'string';
+  }
+
+  /**
+   * Veriyi dinamik olarak işle
+   */
+  static processDataDynamically(data: any[], columnInfo: ColumnInfo[], nullHandling: 'zero' | 'null' | 'exclude' = 'zero'): any[] {
+    return data.map(row => {
+      const processedRow: any = {};
+
+      columnInfo.forEach(column => {
+        const value = row[column.name];
+        
+        switch (column.type) {
+          case 'number':
+            processedRow[column.name] = this.convertToNumber(value);
+            break;
+          case 'percentage':
+            processedRow[column.name] = this.convertPercentageToNumber(value);
+            break;
+          case 'boolean':
+            processedRow[column.name] = this.convertToBoolean(value);
+            break;
+          case 'date':
+            processedRow[column.name] = this.convertToDate(value);
+            break;
+          default:
+            processedRow[column.name] = value;
+        }
+
+        // Null değerleri işle
+        if (processedRow[column.name] === null || processedRow[column.name] === undefined) {
+          switch (nullHandling) {
+            case 'zero':
+              processedRow[column.name] = column.type === 'string' ? '' : 0;
+              break;
+            case 'null':
+              processedRow[column.name] = null;
+              break;
+            case 'exclude':
+              // Bu satırı filtreleme sırasında çıkaracağız
+              break;
+          }
+        }
+      });
+
+      return processedRow;
+    });
+  }
+
+  /**
+   * Yüzde değerini sayıya çevir
+   */
+  private static convertPercentageToNumber(value: any): number {
+    if (value === null || value === undefined || value === '') {
+      return 0;
+    }
+
+    try {
+      if (typeof value === 'number') {
+        return isNaN(value) ? 0 : value;
+      }
+
+      if (typeof value === 'string') {
+        const cleaned = value.replace(/,/g, '').replace(/\s/g, '').trim();
+        if (cleaned === '' || cleaned === '-') {
+          return 0;
+        }
+        
+        // Yüzde işaretini kaldır ve parse et
+        const withoutPercent = cleaned.replace(/%/g, '');
+        const parsed = parseFloat(withoutPercent);
+        return isNaN(parsed) ? 0 : parsed;
+      }
+
+      return 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  /**
+   * Boolean değere çevir
+   */
+  private static convertToBoolean(value: any): boolean | null {
+    if (value === null || value === undefined || value === '') {
+      return null;
+    }
+
+    if (typeof value === 'boolean') {
+      return value;
+    }
+
+    if (typeof value === 'string') {
+      const lower = value.toLowerCase().trim();
+      if (lower === 'true' || lower === '1' || lower === 'yes') {
+        return true;
+      }
+      if (lower === 'false' || lower === '0' || lower === 'no') {
+        return false;
+      }
+    }
+
+    if (typeof value === 'number') {
+      return value === 1;
+    }
+
+    return null;
+  }
+
+  /**
+   * Tarih değerine çevir
+   */
+  private static convertToDate(value: any): string | null {
+    if (value === null || value === undefined || value === '') {
+      return null;
+    }
+
+    if (typeof value === 'string') {
+      // Basit tarih formatı kontrolü
+      const datePatterns = [
+        /^\d{4}-\d{2}-\d{2}$/, // YYYY-MM-DD
+        /^\d{2}\/\d{2}\/\d{4}$/, // MM/DD/YYYY
+        /^\d{2}-\d{2}-\d{4}$/, // MM-DD-YYYY
+      ];
+      
+      if (datePatterns.some(pattern => pattern.test(value))) {
+        return value;
+      }
+    }
+
+    return value;
+  }
+
+  /**
    * Tek klasördeki tüm CSV dosyalarını birleştirir
    */
-  static async mergeNoDuplicateData(files: File[]): Promise<KeywordData[]> {
+  static async mergeNoDuplicateData(files: File[]): Promise<{ data: KeywordData[], columnInfo: ColumnInfo[] }> {
     const allData: KeywordData[] = [];
+    let allColumnInfo: ColumnInfo[] = [];
     
     for (const file of files) {
       try {
-        const data = await this.parseCsvFile(file);
+        const rawData = await this.parseCsvFile(file);
         
-        // Veri tiplerini düzgün şekilde dönüştür
-        const processedData = data.map(row => ({
+        // İlk dosyadan sütun bilgilerini al
+        if (allColumnInfo.length === 0) {
+          allColumnInfo = this.analyzeColumns(rawData);
+        }
+        
+        // Veriyi dinamik olarak işle
+        const processedData = this.processDataDynamically(rawData, allColumnInfo);
+        
+        // Kategori bilgisini ekle
+        const dataWithCategory = processedData.map(row => ({
           ...row,
-          Volume: this.convertToNumber(row.Volume),
-          Difficulty: this.convertToNumber(row.Difficulty),
-          'Growth (Max Reach)': this.convertToNumber(row['Growth (Max Reach)']),
-          'Max. Reach': this.convertToNumber(row['Max. Reach']),
-          'No. of results': this.convertToNumber(row['No. of results']),
           Category: this.extractCategoryFromFileName(file.name),
         }));
         
-        allData.push(...processedData);
+        allData.push(...dataWithCategory);
       } catch (error) {
         console.error(`Error processing file ${file.name}:`, error);
       }
     }
     
-    // Difficulty'ye göre azalan sıralama
-    return allData.sort((a, b) => b.Difficulty - a.Difficulty);
+    return {
+      data: allData.sort((a, b) => (b.Difficulty || 0) - (a.Difficulty || 0)),
+      columnInfo: allColumnInfo
+    };
   }
   
   /**
    * Tarih modu için çoklu klasör işleme
    */
-  static async mergeWithDateData(folders: File[][]): Promise<KeywordData[]> {
+  static async mergeWithDateData(folders: File[][]): Promise<{ data: KeywordData[], columnInfo: ColumnInfo[] }> {
     const allData: KeywordData[] = [];
+    let allColumnInfo: ColumnInfo[] = [];
     
     for (const folder of folders) {
       const folderName = folder[0]?.webkitRelativePath?.split('/')[0] || 'unknown';
@@ -45,49 +292,53 @@ export class CsvProcessor {
       
       for (const file of folder) {
         try {
-          const data = await this.parseCsvFile(file);
+          const rawData = await this.parseCsvFile(file);
           
-          const processedData = data.map(row => ({
+          // İlk dosyadan sütun bilgilerini al
+          if (allColumnInfo.length === 0) {
+            allColumnInfo = this.analyzeColumns(rawData);
+          }
+          
+          // Veriyi dinamik olarak işle
+          const processedData = this.processDataDynamically(rawData, allColumnInfo);
+          
+          const dataWithCategory = processedData.map(row => ({
             ...row,
-            Volume: this.convertToNumber(row.Volume),
-            Difficulty: this.convertToNumber(row.Difficulty),
-            'Growth (Max Reach)': this.convertToNumber(row['Growth (Max Reach)']),
-            'Max. Reach': this.convertToNumber(row['Max. Reach']),
-            'No. of results': this.convertToNumber(row['No. of results']),
             Category: this.extractCategoryFromFileName(file.name),
             Date: dateInfo,
           }));
           
-          allData.push(...processedData);
+          allData.push(...dataWithCategory);
         } catch (error) {
           console.error(`Error processing file ${file.name}:`, error);
         }
       }
     }
     
-    // Difficulty'ye göre azalan sıralama
-    return allData.sort((a, b) => b.Difficulty - a.Difficulty);
+    return {
+      data: allData.sort((a, b) => (b.Difficulty || 0) - (a.Difficulty || 0)),
+      columnInfo: allColumnInfo
+    };
   }
   
   /**
    * Tek CSV dosyası işleme
    */
-  static async processSingleCsvFile(file: File): Promise<KeywordData[]> {
+  static async processSingleCsvFile(file: File): Promise<{ data: KeywordData[], columnInfo: ColumnInfo[] }> {
     try {
-      const data = await this.parseCsvFile(file);
+      const rawData = await this.parseCsvFile(file);
+      const columnInfo = this.analyzeColumns(rawData);
+      const processedData = this.processDataDynamically(rawData, columnInfo);
       
-      const processedData = data.map(row => ({
+      const dataWithCategory = processedData.map(row => ({
         ...row,
-        Volume: this.convertToNumber(row.Volume),
-        Difficulty: this.convertToNumber(row.Difficulty),
-        'Growth (Max Reach)': this.convertToNumber(row['Growth (Max Reach)']),
-        'Max. Reach': this.convertToNumber(row['Max. Reach']),
-        'No. of results': this.convertToNumber(row['No. of results']),
         Category: this.extractCategoryFromFileName(file.name),
       }));
       
-      // Difficulty'ye göre azalan sıralama
-      return processedData.sort((a, b) => b.Difficulty - a.Difficulty);
+      return {
+        data: dataWithCategory.sort((a, b) => (b.Difficulty || 0) - (a.Difficulty || 0)),
+        columnInfo
+      };
     } catch (error) {
       console.error(`Error processing single file ${file.name}:`, error);
       throw error;
@@ -99,8 +350,8 @@ export class CsvProcessor {
    */
   static filterKVD(data: KeywordData[], limit: number): KeywordData[] {
     return data
-      .filter(row => row.Volume >= 20 && row.Difficulty <= limit)
-      .sort((a, b) => b.Volume - a.Volume);
+      .filter(row => (row.Volume || 0) >= 20 && (row.Difficulty || 0) <= limit)
+      .sort((a, b) => (b.Volume || 0) - (a.Volume || 0));
   }
   
   /**

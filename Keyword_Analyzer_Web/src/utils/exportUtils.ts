@@ -1,12 +1,12 @@
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
-import { KeywordData, TitleSubtitleData } from '../types';
+import { KeywordData, TitleSubtitleData, ColumnInfo } from '../types';
 
 export class ExportUtils {
   /**
    * Debug: Veri formatını kontrol et
    */
-  static debugDataFormat(data: KeywordData[] | TitleSubtitleData[]): void {
+  static debugDataFormat(data: KeywordData[] | TitleSubtitleData[], columnInfo?: ColumnInfo[]): void {
     if (data.length === 0) {
       console.log('Debug: Veri boş');
       return;
@@ -16,12 +16,12 @@ export class ExportUtils {
     console.log('Debug: İlk satır veri tipleri:');
     
     Object.entries(firstRow).forEach(([key, value]) => {
-      const isNumeric = this.isNumericColumn(key);
+      const isNumeric = this.isNumericColumn(key, columnInfo);
       console.log(`${key}: ${typeof value} = ${value} ${isNumeric ? '(sayısal sütun)' : ''}`);
     });
     
     // Sayısal sütunların örnek değerlerini kontrol et
-    const numericColumns = Object.keys(firstRow).filter(key => this.isNumericColumn(key));
+    const numericColumns = Object.keys(firstRow).filter(key => this.isNumericColumn(key, columnInfo));
     console.log('Debug: Sayısal sütunlar:', numericColumns);
     
     numericColumns.forEach(column => {
@@ -36,7 +36,8 @@ export class ExportUtils {
   static exportToExcel(
     data: KeywordData[] | TitleSubtitleData[],
     filename: string,
-    sheetName: string = 'ASO Data'
+    sheetName: string = 'ASO Data',
+    columnInfo?: ColumnInfo[]
   ): void {
     try {
       // Veriyi hazırla - sayısal değerleri doğru formatta tut
@@ -45,7 +46,7 @@ export class ExportUtils {
         
         Object.entries(row).forEach(([key, value]) => {
           // Sayısal sütunlar için özel işlem
-          if (this.isNumericColumn(key)) {
+          if (this.isNumericColumn(key, columnInfo)) {
             const numericValue = this.ensureNumericValue(value);
             // Sayısal değeri kesinlikle number olarak tut
             processedRow[key] = numericValue;
@@ -67,7 +68,7 @@ export class ExportUtils {
           headers.map(header => {
             const value = row[header];
             // Sayısal sütunlar için number olarak tut
-            if (this.isNumericColumn(header)) {
+            if (this.isNumericColumn(header, columnInfo)) {
               return this.ensureNumericValue(value);
             }
             return value;
@@ -79,7 +80,7 @@ export class ExportUtils {
       const ws = XLSX.utils.aoa_to_sheet(worksheetData);
       
       // Sayısal sütunlar için format ayarları
-      this.applyNumericFormats(ws, processedData);
+      this.applyNumericFormats(ws, processedData, columnInfo);
       
       // Workbook oluştur
       const wb = XLSX.utils.book_new();
@@ -108,7 +109,16 @@ export class ExportUtils {
   /**
    * Sayısal sütun olup olmadığını kontrol et
    */
-  private static isNumericColumn(columnName: string): boolean {
+  private static isNumericColumn(columnName: string, columnInfo?: ColumnInfo[]): boolean {
+    // Dinamik sütun kontrolü
+    if (columnInfo) {
+      const columnData = columnInfo.find(col => col.name === columnName);
+      if (columnData) {
+        return columnData.type === 'number' || columnData.type === 'percentage';
+      }
+    }
+    
+    // Geriye uyumluluk için eski kontrol
     const numericColumns = [
       'Volume', 
       'Difficulty', 
@@ -163,7 +173,7 @@ export class ExportUtils {
   /**
    * Sayısal sütunlar için format ayarları uygula
    */
-  private static applyNumericFormats(ws: XLSX.WorkSheet, data: any[]): void {
+  private static applyNumericFormats(ws: XLSX.WorkSheet, data: any[], columnInfo?: ColumnInfo[]): void {
     if (data.length === 0) return;
     
     const headers = Object.keys(data[0]);
@@ -171,7 +181,7 @@ export class ExportUtils {
     
     // Sayısal sütunların indekslerini bul
     headers.forEach((header, index) => {
-      if (this.isNumericColumn(header)) {
+      if (this.isNumericColumn(header, columnInfo)) {
         numericColumns[header] = index;
       }
     });
@@ -207,7 +217,8 @@ export class ExportUtils {
    */
   static exportToCsv(
     data: KeywordData[] | TitleSubtitleData[],
-    filename: string
+    filename: string,
+    columnInfo?: ColumnInfo[]
   ): void {
     try {
       if (data.length === 0) {
@@ -222,7 +233,7 @@ export class ExportUtils {
           headers.map(header => {
             const value = row[header as keyof typeof row];
             // Sayısal değerleri doğru formatta tut
-            if (this.isNumericColumn(header)) {
+            if (this.isNumericColumn(header, columnInfo)) {
               const numericValue = this.ensureNumericValue(value);
               return numericValue.toString();
             }

@@ -7,19 +7,33 @@ export interface KeywordData {
   'Max. Reach'?: number;
   'No. of results'?: number;
   Date?: string;
+  [key: string]: any; // Dinamik sütunlar için
+}
+
+export interface ColumnInfo {
+  name: string;
+  type: 'string' | 'number' | 'boolean' | 'percentage' | 'date';
+  min?: number;
+  max?: number;
+  hasNulls: boolean;
+  uniqueValues?: any[];
+  booleanValues?: boolean[];
 }
 
 export interface FilterState {
   columnFilters: Record<string, { min: number; max: number }>;
+  booleanFilters: Record<string, boolean | null>; // null = tümü, true = sadece true, false = sadece false
   searchTerms: string[];
   excludeTerms: string[];
   filterNonLatin: boolean;
+  nullHandling: 'zero' | 'null' | 'exclude'; // null değerleri nasıl işleyeceğimiz
 }
 
 export interface AppState {
   // Data
   mergedData: KeywordData[] | null;
   currentTable: KeywordData[] | null;
+  columnInfo: ColumnInfo[]; // Dinamik sütun bilgileri
   
   // UI State
   loading: boolean;
@@ -45,6 +59,13 @@ export interface ColumnFilter {
   min: number;
   max: number;
   display: string;
+  type: 'number' | 'percentage';
+}
+
+export interface BooleanFilter {
+  column: string;
+  value: boolean | null; // null = tümü
+  display: string;
 }
 
 export interface ExportOptions {
@@ -64,4 +85,5 @@ export interface TitleSubtitleData {
   Average_Volume?: number;
   Average_Difficulty?: number;
   Matched_Keywords_Count?: number;
+  [key: string]: any; // Dinamik sütunlar için
 } 

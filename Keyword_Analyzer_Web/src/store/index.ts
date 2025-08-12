@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { AppState, FilterState, KeywordData } from '../types';
+import { AppState, FilterState, KeywordData, ColumnInfo } from '../types';
 
 interface AppStore extends AppState {
   // Actions
@@ -10,6 +10,7 @@ interface AppStore extends AppState {
   // Data actions
   setMergedData: (data: KeywordData[] | null) => void;
   setCurrentTable: (data: KeywordData[] | null) => void;
+  setColumnInfo: (columnInfo: ColumnInfo[]) => void;
   
   // Settings actions
   setDateMode: (mode: boolean) => void;
@@ -19,11 +20,13 @@ interface AppStore extends AppState {
   
   // Filter actions
   setColumnFilter: (column: string, min: number, max: number) => void;
+  setBooleanFilter: (column: string, value: boolean | null) => void;
   addSearchTerm: (term: string) => void;
   removeSearchTerm: (term: string) => void;
   addExcludeTerm: (term: string) => void;
   removeExcludeTerm: (term: string) => void;
   setFilterNonLatin: (filter: boolean) => void;
+  setNullHandling: (handling: 'zero' | 'null' | 'exclude') => void;
   clearFilters: () => void;
   applyFilters: () => void;
   
@@ -37,9 +40,11 @@ interface AppStore extends AppState {
 
 const initialFilters: FilterState = {
   columnFilters: {},
+  booleanFilters: {},
   searchTerms: [],
   excludeTerms: [],
   filterNonLatin: false,
+  nullHandling: 'zero',
 };
 
 // Güvenli sayı dönüşümü yardımcı fonksiyonu
@@ -70,6 +75,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   // Initial state
   mergedData: null,
   currentTable: null,
+  columnInfo: [],
   loading: false,
   error: null,
   success: null,
@@ -88,6 +94,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   
   setMergedData: (data) => set({ mergedData: data }),
   setCurrentTable: (data) => set({ currentTable: data }),
+  setColumnInfo: (columnInfo) => set({ columnInfo }),
   
   setDateMode: (mode) => {
     set((state) => ({
@@ -116,6 +123,18 @@ export const useAppStore = create<AppStore>((set, get) => ({
             min: safeNumberConversion(min), 
             max: safeNumberConversion(max) 
           },
+        },
+      },
+    }));
+  },
+
+  setBooleanFilter: (column, value) => {
+    set((state) => ({
+      filters: {
+        ...state.filters,
+        booleanFilters: {
+          ...state.filters.booleanFilters,
+          [column]: value,
         },
       },
     }));
@@ -189,6 +208,15 @@ export const useAppStore = create<AppStore>((set, get) => ({
       },
     }));
   },
+
+  setNullHandling: (handling) => {
+    set((state) => ({
+      filters: {
+        ...state.filters,
+        nullHandling: handling,
+      },
+    }));
+  },
   
   clearFilters: () => {
     set((state) => ({
@@ -208,6 +236,16 @@ export const useAppStore = create<AppStore>((set, get) => ({
         const value = safeNumberConversion(row[column as keyof KeywordData]);
         return value >= filter.min && value <= filter.max;
       });
+    });
+
+    // Boolean filtrelerini uygula
+    Object.entries(state.filters.booleanFilters).forEach(([column, filterValue]) => {
+      if (filterValue !== null) {
+        filteredData = filteredData.filter((row) => {
+          const value = row[column as keyof KeywordData];
+          return value === filterValue;
+        });
+      }
     });
     
     // Arama terimlerini uygula
@@ -235,6 +273,13 @@ export const useAppStore = create<AppStore>((set, get) => ({
       filteredData = filteredData.filter((row) => {
         const keyword = String(row.Keyword || '');
         return /^[a-zA-Z0-9\s\-_.,!?()]+$/.test(keyword);
+      });
+    }
+
+    // Null değerleri işle
+    if (state.filters.nullHandling === 'exclude') {
+      filteredData = filteredData.filter((row) => {
+        return Object.values(row).every(val => val !== null && val !== undefined && val !== '');
       });
     }
     

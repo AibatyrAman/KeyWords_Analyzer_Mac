@@ -56,8 +56,24 @@ export const DataTable: React.FC<DataTableProps> = ({ data, title }) => {
 
   // Sayısal değer kontrolü
   const isNumericColumn = (column: string): boolean => {
+    // Dinamik sütun kontrolü - store'dan columnInfo'yu al
+    const { columnInfo } = useAppStore();
+    const columnData = columnInfo.find(col => col.name === column);
+    
+    if (columnData) {
+      return columnData.type === 'number' || columnData.type === 'percentage';
+    }
+    
+    // Geriye uyumluluk için eski kontrol
     const numericColumns = ['Volume', 'Difficulty', 'Growth (Max Reach)', 'Max. Reach', 'No. of results', 'Title_Length', 'Subtitle_Length', 'Keywords_Length', 'Total_Volume', 'Total_Difficulty', 'Average_Volume', 'Average_Difficulty', 'Matched_Keywords_Count'];
     return numericColumns.includes(column);
+  };
+
+  // Boolean sütun kontrolü
+  const isBooleanColumn = (column: string): boolean => {
+    const { columnInfo } = useAppStore();
+    const columnData = columnInfo.find(col => col.name === column);
+    return columnData?.type === 'boolean';
   };
 
   // Güvenli sayı dönüşümü
@@ -205,7 +221,8 @@ export const DataTable: React.FC<DataTableProps> = ({ data, title }) => {
       });
 
       const sanitizedFilename = ExportUtils.sanitizeFilename(exportFilename);
-      ExportUtils.exportToExcel(exportData, sanitizedFilename);
+      const { columnInfo } = useAppStore();
+      ExportUtils.exportToExcel(exportData, sanitizedFilename, 'ASO Data', columnInfo);
       setSuccess(`Excel dosyası başarıyla indirildi: ${sanitizedFilename}`);
     } catch (error) {
       setError(`Export hatası: ${error instanceof Error ? error.message : 'Bilinmeyen hata'}`);
@@ -219,8 +236,25 @@ export const DataTable: React.FC<DataTableProps> = ({ data, title }) => {
     return Object.keys(firstRow);
   };
 
-  const formatCellValue = (value: any): string => {
+  const formatCellValue = (value: any, columnName?: string): string => {
     if (value === null || value === undefined) return '-';
+    
+    // Boolean değerler için özel formatlama
+    if (columnName && isBooleanColumn(columnName)) {
+      if (typeof value === 'boolean') {
+        return value ? '✅ True' : '❌ False';
+      }
+      if (typeof value === 'string') {
+        const lower = value.toLowerCase();
+        if (lower === 'true' || lower === '1' || lower === 'yes') {
+          return '✅ True';
+        }
+        if (lower === 'false' || lower === '0' || lower === 'no') {
+          return '❌ False';
+        }
+      }
+      return String(value);
+    }
     
     // Sayısal değerler için özel formatlama
     if (typeof value === 'number') {
@@ -312,7 +346,8 @@ export const DataTable: React.FC<DataTableProps> = ({ data, title }) => {
               variant="outlined"
               size="small"
               onClick={() => {
-                ExportUtils.debugDataFormat(processedData);
+                const { columnInfo } = useAppStore();
+                ExportUtils.debugDataFormat(processedData, columnInfo);
                 console.log('Debug: Export öncesi veri kontrol edildi');
               }}
               disabled={!processedData || processedData.length === 0}
@@ -372,7 +407,7 @@ export const DataTable: React.FC<DataTableProps> = ({ data, title }) => {
                           variant="outlined"
                         />
                       ) : (
-                        formatCellValue(row[header as keyof KeywordData])
+                        formatCellValue(row[header as keyof KeywordData], header)
                       )}
                     </TableCell>
                   ))}
