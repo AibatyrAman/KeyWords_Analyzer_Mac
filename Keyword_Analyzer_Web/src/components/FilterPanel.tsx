@@ -248,13 +248,17 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({ data, columnInfo }) =>
                   </Typography>
                   <FormControl fullWidth size="small">
                     <Select
-                      value={tempBooleanFilters[column.name] ?? null}
-                      onChange={(e) => handleBooleanFilterChange(column.name, e.target.value as boolean | null)}
+                      value={tempBooleanFilters[column.name] ?? "all"}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        const booleanValue = value === "all" ? null : value === "true";
+                        handleBooleanFilterChange(column.name, booleanValue);
+                      }}
                       displayEmpty
                     >
-                      <MenuItem value={null}>Tümü</MenuItem>
-                      <MenuItem value={true}>True</MenuItem>
-                      <MenuItem value={false}>False</MenuItem>
+                      <MenuItem value="all">Tümü</MenuItem>
+                      <MenuItem value="true">True</MenuItem>
+                      <MenuItem value="false">False</MenuItem>
                     </Select>
                   </FormControl>
                 </Box>

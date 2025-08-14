@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { AppState, FilterState, KeywordData, ColumnInfo } from '../types';
+import { AppState, FilterState, KeywordData, ColumnInfo, TitleSubtitleData } from '../types';
 
 interface AppStore extends AppState {
   // Actions
@@ -11,6 +11,7 @@ interface AppStore extends AppState {
   setMergedData: (data: KeywordData[] | null) => void;
   setCurrentTable: (data: KeywordData[] | null) => void;
   setColumnInfo: (columnInfo: ColumnInfo[]) => void;
+  setTitleSubtitleData: (data: TitleSubtitleData[] | null) => void;
   
   // Settings actions
   setDateMode: (mode: boolean) => void;
@@ -76,6 +77,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   mergedData: null,
   currentTable: null,
   columnInfo: [],
+  titleSubtitleData: null,
   loading: false,
   error: null,
   success: null,
@@ -95,6 +97,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   setMergedData: (data) => set({ mergedData: data }),
   setCurrentTable: (data) => set({ currentTable: data }),
   setColumnInfo: (columnInfo) => set({ columnInfo }),
+  setTitleSubtitleData: (data) => set({ titleSubtitleData: data }),
   
   setDateMode: (mode) => {
     set((state) => ({

@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -24,11 +24,12 @@ import {
   TableChart,
 } from '@mui/icons-material';
 import { useAppStore } from '../store';
-import { KeywordData } from '../types';
+import { KeywordData, TitleSubtitleData } from '../types';
 import { ExportUtils } from '../utils/exportUtils';
+import { MatchedKeywordsDialog } from './MatchedKeywordsDialog';
 
 interface DataTableProps {
-  data: KeywordData[] | null;
+  data: (KeywordData | TitleSubtitleData)[] | null;
   title: string;
 }
 
@@ -39,12 +40,23 @@ export const DataTable: React.FC<DataTableProps> = ({ data, title }) => {
     setSortColumn,
     setSortDirection,
     filters,
-    setSuccess,
     setError,
+    setSuccess,
+    columnInfo,
+    mergedData,
   } = useAppStore();
 
-  const [exportFilename, setExportFilename] = React.useState('aso_table');
-  const [exportLocation, setExportLocation] = React.useState<'finder' | 'desktop' | 'project' | 'both'>('finder');
+  const [exportFilename, setExportFilename] = useState('aso_keywords_data');
+  const [exportLocation, setExportLocation] = useState<'finder' | 'desktop' | 'project' | 'both'>('finder');
+  const [matchedKeywordsDialog, setMatchedKeywordsDialog] = useState<{
+    open: boolean;
+    title: string;
+    subtitle: string;
+  }>({
+    open: false,
+    title: '',
+    subtitle: ''
+  });
 
   // Latin alfabesi kontrol fonksiyonu
   const isLatinOnly = (keyword: string): boolean => {
@@ -57,7 +69,6 @@ export const DataTable: React.FC<DataTableProps> = ({ data, title }) => {
   // Sayısal değer kontrolü
   const isNumericColumn = (column: string): boolean => {
     // Dinamik sütun kontrolü - store'dan columnInfo'yu al
-    const { columnInfo } = useAppStore();
     const columnData = columnInfo.find(col => col.name === column);
     
     if (columnData) {
@@ -71,7 +82,6 @@ export const DataTable: React.FC<DataTableProps> = ({ data, title }) => {
 
   // Boolean sütun kontrolü
   const isBooleanColumn = (column: string): boolean => {
-    const { columnInfo } = useAppStore();
     const columnData = columnInfo.find(col => col.name === column);
     return columnData?.type === 'boolean';
   };
@@ -100,6 +110,11 @@ export const DataTable: React.FC<DataTableProps> = ({ data, title }) => {
     }
   };
 
+  // Check if data is TitleSubtitleData
+  const isTitleSubtitleData = useCallback((item: any): item is TitleSubtitleData => {
+    return item && 'Title' in item && 'Subtitle' in item;
+  }, []);
+
   // Filtrelenmiş ve sıralanmış veri
   const processedData = useMemo(() => {
     if (!data) return [];
@@ -109,7 +124,7 @@ export const DataTable: React.FC<DataTableProps> = ({ data, title }) => {
     // Sütun filtreleri uygula
     Object.entries(filters.columnFilters).forEach(([column, filter]) => {
       filteredData = filteredData.filter(row => {
-        const value = row[column as keyof KeywordData];
+        const value = row[column as keyof typeof row];
         const numericValue = safeNumberConversion(value);
         
         // Sayısal sütunlar için range kontrolü
@@ -127,7 +142,8 @@ export const DataTable: React.FC<DataTableProps> = ({ data, title }) => {
     // Keyword arama filtreleri
     if (filters.searchTerms.length > 0) {
       filteredData = filteredData.filter(row => {
-        const keyword = String(row.Keyword || '').toLowerCase();
+        if (isTitleSubtitleData(row)) return true; // Skip filtering for TitleSubtitleData
+        const keyword = String((row as KeywordData).Keyword || '').toLowerCase();
         return filters.searchTerms.some(term => {
           const termLower = term.toLowerCase();
           return keyword.includes(termLower) || 
@@ -140,7 +156,8 @@ export const DataTable: React.FC<DataTableProps> = ({ data, title }) => {
     // Çıkarılacak kelimeler filtresi
     if (filters.excludeTerms.length > 0) {
       filteredData = filteredData.filter(row => {
-        const keyword = String(row.Keyword || '').toLowerCase();
+        if (isTitleSubtitleData(row)) return true; // Skip filtering for TitleSubtitleData
+        const keyword = String((row as KeywordData).Keyword || '').toLowerCase();
         return !filters.excludeTerms.some(term => {
           const termLower = term.toLowerCase();
           return keyword.includes(termLower) || 
@@ -153,15 +170,16 @@ export const DataTable: React.FC<DataTableProps> = ({ data, title }) => {
     // Latin alfabesi filtresi
     if (filters.filterNonLatin) {
       filteredData = filteredData.filter(row => {
-        return isLatinOnly(String(row.Keyword || ''));
+        if (isTitleSubtitleData(row)) return true; // Skip filtering for TitleSubtitleData
+        return isLatinOnly(String((row as KeywordData).Keyword || ''));
       });
     }
 
     // Sıralama
     if (sortColumn) {
       filteredData.sort((a, b) => {
-        const aValue = a[sortColumn as keyof KeywordData];
-        const bValue = b[sortColumn as keyof KeywordData];
+        const aValue = a[sortColumn as keyof typeof a];
+        const bValue = b[sortColumn as keyof typeof b];
 
         // Sayısal sütunlar için sayısal sıralama
         if (isNumericColumn(sortColumn)) {
@@ -199,6 +217,16 @@ export const DataTable: React.FC<DataTableProps> = ({ data, title }) => {
     }
   };
 
+  const handleRowDoubleClick = (row: any) => {
+    if (isTitleSubtitleData(row) && mergedData) {
+      setMatchedKeywordsDialog({
+        open: true,
+        title: row.Title,
+        subtitle: row.Subtitle
+      });
+    }
+  };
+
   const handleExport = () => {
     if (!processedData || processedData.length === 0) {
       setError('Dışa aktarılacak veri yok');
@@ -221,8 +249,7 @@ export const DataTable: React.FC<DataTableProps> = ({ data, title }) => {
       });
 
       const sanitizedFilename = ExportUtils.sanitizeFilename(exportFilename);
-      const { columnInfo } = useAppStore();
-      ExportUtils.exportToExcel(exportData, sanitizedFilename, 'ASO Data', columnInfo);
+      ExportUtils.exportToExcel(exportData as any, sanitizedFilename, 'ASO Data', columnInfo);
       setSuccess(`Excel dosyası başarıyla indirildi: ${sanitizedFilename}`);
     } catch (error) {
       setError(`Export hatası: ${error instanceof Error ? error.message : 'Bilinmeyen hata'}`);
@@ -284,15 +311,19 @@ export const DataTable: React.FC<DataTableProps> = ({ data, title }) => {
   // Ortalama hesaplamaları
   const averageVolume = useMemo(() => {
     if (!processedData || processedData.length === 0) return 0;
-    const volumes = processedData.map(row => safeNumberConversion(row.Volume));
+    const volumes = processedData
+      .filter(row => !isTitleSubtitleData(row))
+      .map(row => safeNumberConversion((row as KeywordData).Volume));
     return calculateSafeAverage(volumes);
-  }, [processedData]);
+  }, [processedData, isTitleSubtitleData]);
 
   const averageDifficulty = useMemo(() => {
     if (!processedData || processedData.length === 0) return 0;
-    const difficulties = processedData.map(row => safeNumberConversion(row.Difficulty));
+    const difficulties = processedData
+      .filter(row => !isTitleSubtitleData(row))
+      .map(row => safeNumberConversion((row as KeywordData).Difficulty));
     return calculateSafeAverage(difficulties);
-  }, [processedData]);
+  }, [processedData, isTitleSubtitleData]);
 
   return (
     <Box sx={{ width: '100%' }}>
@@ -346,8 +377,7 @@ export const DataTable: React.FC<DataTableProps> = ({ data, title }) => {
               variant="outlined"
               size="small"
               onClick={() => {
-                const { columnInfo } = useAppStore();
-                ExportUtils.debugDataFormat(processedData, columnInfo);
+                ExportUtils.debugDataFormat(processedData as any, columnInfo);
                 console.log('Debug: Export öncesi veri kontrol edildi');
               }}
               disabled={!processedData || processedData.length === 0}
@@ -396,18 +426,28 @@ export const DataTable: React.FC<DataTableProps> = ({ data, title }) => {
               </TableRow>
             ) : (
               processedData.map((row, index) => (
-                <TableRow key={index} hover>
+                <TableRow 
+                  key={index} 
+                  hover 
+                  onDoubleClick={() => handleRowDoubleClick(row)}
+                  sx={{ 
+                    cursor: isTitleSubtitleData(row) ? 'pointer' : 'default',
+                    '&:hover': {
+                      backgroundColor: isTitleSubtitleData(row) ? 'action.hover' : undefined
+                    }
+                  }}
+                >
                   {getColumnHeaders().map((header) => (
                     <TableCell key={header}>
                       {header === 'Category' ? (
                         <Chip
-                          label={row[header as keyof KeywordData]}
+                          label={String(row[header as keyof typeof row] || '')}
                           size="small"
                           color="primary"
                           variant="outlined"
                         />
                       ) : (
-                        formatCellValue(row[header as keyof KeywordData], header)
+                        formatCellValue(row[header as keyof typeof row], header)
                       )}
                     </TableCell>
                   ))}
@@ -428,6 +468,15 @@ export const DataTable: React.FC<DataTableProps> = ({ data, title }) => {
           </Typography>
         </Box>
       )}
+
+      {/* Matched Keywords Dialog */}
+      <MatchedKeywordsDialog
+        open={matchedKeywordsDialog.open}
+        onClose={() => setMatchedKeywordsDialog({ open: false, title: '', subtitle: '' })}
+        title={matchedKeywordsDialog.title}
+        subtitle={matchedKeywordsDialog.subtitle}
+        originalData={mergedData || []}
+      />
     </Box>
   );
 }; 

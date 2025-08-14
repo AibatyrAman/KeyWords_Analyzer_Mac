@@ -23,8 +23,9 @@ import { FilterPanel } from './components/FilterPanel';
 import { DataTable } from './components/DataTable';
 import { MessageDisplay } from './components/MessageDisplay';
 import { LoadingOverlay } from './components/LoadingOverlay';
+import { TitleSubtitleGenerator } from './components/TitleSubtitleGenerator';
 import { CsvProcessor } from './utils/csvProcessor';
-import { KeywordData, ColumnInfo } from './types';
+import { KeywordData, ColumnInfo, TitleSubtitleData } from './types';
 
 const theme = createTheme({
   palette: {
@@ -48,6 +49,7 @@ function App() {
     setMergedData,
     setCurrentTable,
     setColumnInfo,
+    setTitleSubtitleData,
     setLoading,
     setError,
     setSuccess,
@@ -133,6 +135,12 @@ function App() {
     setSuccess('Tüm veriler gösteriliyor');
   };
 
+  const handleTitleSubtitleGenerated = (data: TitleSubtitleData[]) => {
+    setTitleSubtitleData(data);
+    setCurrentTable(data as any);
+    setSuccess('Title & Subtitle verileri yüklendi');
+  };
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
@@ -204,6 +212,11 @@ function App() {
                   Birleştirilmiş Ana Tablo (Tümü)
                 </Button>
               </Stack>
+
+              <Divider sx={{ my: 3 }} />
+
+              {/* Title Subtitle Generator */}
+              <TitleSubtitleGenerator onGenerated={handleTitleSubtitleGenerated} />
 
               <Divider sx={{ my: 3 }} />
 

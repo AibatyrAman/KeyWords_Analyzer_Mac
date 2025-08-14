@@ -34,6 +34,7 @@ export interface AppState {
   mergedData: KeywordData[] | null;
   currentTable: KeywordData[] | null;
   columnInfo: ColumnInfo[]; // Dinamik sütun bilgileri
+  titleSubtitleData: TitleSubtitleData[] | null;
   
   // UI State
   loading: boolean;
