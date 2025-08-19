@@ -260,7 +260,21 @@ export const DataTable: React.FC<DataTableProps> = ({ data, title }) => {
     if (!processedData || processedData.length === 0) return [];
     
     const firstRow = processedData[0];
-    return Object.keys(firstRow);
+    const originalHeaders = Object.keys(firstRow);
+    
+    // Yüzdelik sütunlara % ekle
+    return originalHeaders.map(header => {
+      const columnData = columnInfo.find(col => col.name === header);
+      if (columnData && columnData.type === 'percentage') {
+        return `${header} %`;
+      }
+      return header;
+    });
+  };
+
+  // Orijinal sütun adını al (data erişimi için)
+  const getOriginalColumnName = (displayHeader: string): string => {
+    return displayHeader.replace(' %', '');
   };
 
   const formatCellValue = (value: any, columnName?: string): string => {
@@ -396,7 +410,7 @@ export const DataTable: React.FC<DataTableProps> = ({ data, title }) => {
               {getColumnHeaders().map((header) => (
                 <TableCell
                   key={header}
-                  sortDirection={sortColumn === header ? sortDirection : false}
+                  sortDirection={sortColumn === getOriginalColumnName(header) ? sortDirection : false}
                   sx={{
                     backgroundColor: 'primary.main',
                     color: 'white',
@@ -404,9 +418,9 @@ export const DataTable: React.FC<DataTableProps> = ({ data, title }) => {
                   }}
                 >
                   <TableSortLabel
-                    active={sortColumn === header}
-                    direction={sortColumn === header ? sortDirection : 'asc'}
-                    onClick={() => handleSort(header)}
+                    active={sortColumn === getOriginalColumnName(header)}
+                    direction={sortColumn === getOriginalColumnName(header) ? sortDirection : 'asc'}
+                    onClick={() => handleSort(getOriginalColumnName(header))}
                     sx={{ color: 'white', '&.MuiTableSortLabel-active': { color: 'white' } }}
                   >
                     {header}
@@ -437,20 +451,23 @@ export const DataTable: React.FC<DataTableProps> = ({ data, title }) => {
                     }
                   }}
                 >
-                  {getColumnHeaders().map((header) => (
-                    <TableCell key={header}>
-                      {header === 'Category' ? (
-                        <Chip
-                          label={String(row[header as keyof typeof row] || '')}
-                          size="small"
-                          color="primary"
-                          variant="outlined"
-                        />
-                      ) : (
-                        formatCellValue(row[header as keyof typeof row], header)
-                      )}
-                    </TableCell>
-                  ))}
+                  {getColumnHeaders().map((header) => {
+                    const originalColumnName = getOriginalColumnName(header);
+                    return (
+                      <TableCell key={header}>
+                        {originalColumnName === 'Category' ? (
+                          <Chip
+                            label={String(row[originalColumnName as keyof typeof row] || '')}
+                            size="small"
+                            color="primary"
+                            variant="outlined"
+                          />
+                        ) : (
+                          formatCellValue(row[originalColumnName as keyof typeof row], originalColumnName)
+                        )}
+                      </TableCell>
+                    );
+                  })}
                 </TableRow>
               ))
             )}

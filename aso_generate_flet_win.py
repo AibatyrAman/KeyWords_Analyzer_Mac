@@ -18,20 +18,9 @@ import subprocess
 import platform
 import unicodedata
 
-import os
-from dotenv import load_dotenv
+# API anahtarı direkt kod içinde
 
-# Load environment variables
-load_dotenv()
-
-# API anahtarını .env dosyasından al
-open_ai_key = os.getenv('OPENAI_API_KEY')
-
-if not open_ai_key:
-    print("❌ HATA: OPENAI_API_KEY environment variable bulunamadı!")
-    print("📝 Lütfen .env dosyası oluşturun ve OPENAI_API_KEY değerini ekleyin.")
-    exit(1)
-
+open_ai_key ="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"
 # OpenAI client oluştur
 client = OpenAI(api_key=open_ai_key)
 

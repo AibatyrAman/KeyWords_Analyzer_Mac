@@ -58,14 +58,24 @@ export class ExportUtils {
         return processedRow;
       });
       
-      // Headers'ı al
-      const headers = Object.keys(processedData[0] || {});
+      // Headers'ı al ve yüzdelik sütunlara % ekle
+      const originalHeaders = Object.keys(processedData[0] || {});
+      const headers = originalHeaders.map(header => {
+        // Yüzdelik sütun kontrolü
+        if (columnInfo) {
+          const columnData = columnInfo.find(col => col.name === header);
+          if (columnData && columnData.type === 'percentage') {
+            return `${header} %`;
+          }
+        }
+        return header;
+      });
       
       // 2D array oluştur (header + data)
       const worksheetData = [
-        headers, // İlk satır header
+        headers, // İlk satır header (yüzdelik sütunlarda % işareti ile)
         ...processedData.map(row => 
-          headers.map(header => {
+          originalHeaders.map(header => {
             const value = row[header];
             // Sayısal sütunlar için number olarak tut
             if (this.isNumericColumn(header, columnInfo)) {
@@ -176,13 +186,15 @@ export class ExportUtils {
   private static applyNumericFormats(ws: XLSX.WorkSheet, data: any[], columnInfo?: ColumnInfo[]): void {
     if (data.length === 0) return;
     
-    const headers = Object.keys(data[0]);
+    const originalHeaders = Object.keys(data[0]);
     const numericColumns: { [key: string]: number } = {};
     
-    // Sayısal sütunların indekslerini bul
-    headers.forEach((header, index) => {
-      if (this.isNumericColumn(header, columnInfo)) {
-        numericColumns[header] = index;
+    // Sayısal sütunların indekslerini bul (header'da % işareti olabilir)
+    originalHeaders.forEach((header, index) => {
+      // % işaretini kaldırarak orijinal sütun adını bul
+      const originalColumnName = header.replace(' %', '');
+      if (this.isNumericColumn(originalColumnName, columnInfo)) {
+        numericColumns[originalColumnName] = index;
       }
     });
     
@@ -194,6 +206,9 @@ export class ExportUtils {
       if (!ws['!cols']) ws['!cols'] = [];
       ws['!cols'][colIndex] = { width: 15 };
       
+      // Yüzdelik sütun kontrolü
+      const isPercentageColumn = columnInfo?.find(col => col.name === columnName)?.type === 'percentage';
+      
       // Her hücre için sayısal format uygula (header'dan sonraki satırlar)
       data.forEach((row, rowIndex) => {
         const cellAddress = `${colLetter}${rowIndex + 2}`; // +2 çünkü header var ve Excel 1'den başlar
@@ -202,11 +217,17 @@ export class ExportUtils {
         // Sayısal değeri kesinlikle number olarak ayarla
         const numericValue = this.ensureNumericValue(cellValue);
         
+        // Format belirleme
+        let format = '#,##0';
+        if (isPercentageColumn) {
+          format = '0.00%'; // Yüzdelik format
+        }
+        
         // Hücreyi oluştur veya güncelle
         ws[cellAddress] = {
           v: numericValue, // value
           t: 'n', // type: number
-          z: '#,##0' // format: number with thousands separator
+          z: format // format: number with thousands separator or percentage
         };
       });
     });
@@ -225,12 +246,23 @@ export class ExportUtils {
         throw new Error('Dışa aktarılacak veri yok');
       }
       
-      // CSV başlıklarını oluştur
-      const headers = Object.keys(data[0]);
+      // CSV başlıklarını oluştur ve yüzdelik sütunlara % ekle
+      const originalHeaders = Object.keys(data[0]);
+      const headers = originalHeaders.map(header => {
+        // Yüzdelik sütun kontrolü
+        if (columnInfo) {
+          const columnData = columnInfo.find(col => col.name === header);
+          if (columnData && columnData.type === 'percentage') {
+            return `${header} %`;
+          }
+        }
+        return header;
+      });
+      
       const csvContent = [
         headers.join(','),
         ...data.map(row => 
-          headers.map(header => {
+          originalHeaders.map(header => {
             const value = row[header as keyof typeof row];
             // Sayısal değerleri doğru formatta tut
             if (this.isNumericColumn(header, columnInfo)) {

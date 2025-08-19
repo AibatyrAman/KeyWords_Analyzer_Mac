@@ -1,11 +1,7 @@
 import { KeywordData, TitleSubtitleData } from '../types';
 
 // OpenAI API configuration
-const OPENAI_API_KEY = process.env.REACT_APP_OPENAI_API_KEY;
-
-if (!OPENAI_API_KEY) {
-  console.error('OpenAI API key is not configured. Please set REACT_APP_OPENAI_API_KEY in your .env file');
-}
+const OPENAI_API_KEY = "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";
 
 // Banned words list
 const BANNED_WORDS = [
@@ -66,11 +62,6 @@ export class TitleSubtitleProcessor {
 
   // Step 3: Remove branded words using OpenAI
   static async removeBrandedWords(wordFrequencies: WordFrequency[]): Promise<WordFrequency[]> {
-    if (!OPENAI_API_KEY) {
-      console.warn('OpenAI API key not configured, skipping branded words removal');
-      return wordFrequencies.filter(wf => !BANNED_WORDS.includes(wf.word.toLowerCase()));
-    }
-    
     try {
       const words = wordFrequencies.map(wf => wf.word);
       
@@ -142,11 +133,6 @@ Return the list of branded words and proper nouns in the following format:
 
   // Step 4: Remove suffixes using OpenAI
   static async removeSuffixes(wordFrequencies: WordFrequency[], selectedCountry: string): Promise<WordFrequency[]> {
-    if (!OPENAI_API_KEY) {
-      console.warn('OpenAI API key not configured, skipping suffix removal');
-      return wordFrequencies;
-    }
-    
     try {
       const words = wordFrequencies.map(wf => wf.word);
       
@@ -230,10 +216,6 @@ Return the processed list in JSON list format. For example:
     appName: string, 
     selectedCountry: string
   ): Promise<TitleSubtitleData[]> {
-    if (!OPENAI_API_KEY) {
-      throw new Error('OpenAI API key is required for Title and Subtitle generation. Please set REACT_APP_OPENAI_API_KEY in your .env file');
-    }
-    
     try {
       const topKeywords = wordFrequencies.map(wf => wf.word);
       
