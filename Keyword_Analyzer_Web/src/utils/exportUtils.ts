@@ -179,6 +179,16 @@ export class ExportUtils {
       return 0;
     }
   }
+
+  /**
+   * Yüzde değerini doğru formatta döndür
+   */
+  private static ensurePercentageValue(value: any): number {
+    const numericValue = this.ensureNumericValue(value);
+    // Eğer değer zaten yüzde olarak geliyorsa (örn: 289), bunu 2.89'a çevir
+    // Excel'de % formatı için 0-1 arası değer gerekli
+    return numericValue / 100;
+  }
   
   /**
    * Sayısal sütunlar için format ayarları uygula
@@ -220,7 +230,14 @@ export class ExportUtils {
         // Format belirleme
         let format = '#,##0';
         if (isPercentageColumn) {
-          format = '0.00%'; // Yüzdelik format
+          // Yüzdelik değerleri doğru formatta ayarla
+          const percentageValue = this.ensurePercentageValue(cellValue);
+          ws[cellAddress] = {
+            v: percentageValue, // value (0-1 arası)
+            t: 'n', // type: number
+            z: '0%' // format: percentage without decimals
+          };
+          return; // Bu hücre için özel işlem yapıldı, devam etme
         }
         
         // Hücreyi oluştur veya güncelle

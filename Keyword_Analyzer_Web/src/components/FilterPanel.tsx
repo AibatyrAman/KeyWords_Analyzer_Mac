@@ -45,6 +45,7 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({ data, columnInfo }) =>
     removeExcludeTerm,
     setFilterNonLatin,
     setNullHandling,
+    setRemoveDuplicates,
     clearFilters,
     applyFilters,
   } = useAppStore();
@@ -56,6 +57,7 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({ data, columnInfo }) =>
   const [tempSearchTerms, setTempSearchTerms] = useState<string[]>([]);
   const [tempExcludeTerms, setTempExcludeTerms] = useState<string[]>([]);
   const [tempFilterNonLatin, setTempFilterNonLatin] = useState(false);
+  const [tempRemoveDuplicates, setTempRemoveDuplicates] = useState(false);
   const [tempColumnFilters, setTempColumnFilters] = useState<Record<string, { min: number; max: number }>>({});
   const [tempBooleanFilters, setTempBooleanFilters] = useState<Record<string, boolean | null>>({});
   const [tempNullHandling, setTempNullHandling] = useState<'zero' | 'null' | 'exclude'>('zero');
@@ -88,6 +90,7 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({ data, columnInfo }) =>
     setTempSearchTerms(filters.searchTerms);
     setTempExcludeTerms(filters.excludeTerms);
     setTempFilterNonLatin(filters.filterNonLatin);
+    setTempRemoveDuplicates(filters.removeDuplicates);
     setTempBooleanFilters(filters.booleanFilters);
     setTempNullHandling(filters.nullHandling);
     
@@ -130,6 +133,7 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({ data, columnInfo }) =>
     tempSearchTerms.forEach(term => addSearchTerm(term));
     tempExcludeTerms.forEach(term => addExcludeTerm(term));
     setFilterNonLatin(tempFilterNonLatin);
+    setRemoveDuplicates(tempRemoveDuplicates);
     setNullHandling(tempNullHandling);
     
     // Sütun filtrelerini uygula
@@ -150,6 +154,7 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({ data, columnInfo }) =>
     setTempSearchTerms([]);
     setTempExcludeTerms([]);
     setTempFilterNonLatin(false);
+    setTempRemoveDuplicates(false);
     setTempColumnFilters({});
     setTempBooleanFilters({});
     setTempNullHandling('zero');
@@ -369,6 +374,15 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({ data, columnInfo }) =>
             }
             label="Sadece Latin alfabesi içeren keyword'leri göster"
           />
+                     <FormControlLabel
+             control={
+               <Checkbox
+                 checked={tempRemoveDuplicates}
+                 onChange={(e) => setTempRemoveDuplicates(e.target.checked)}
+               />
+             }
+             label="Duplicate keyword'leri çıkar (aynı kategoride difficulty değeri düşük olanı çıkarır)"
+           />
         </AccordionDetails>
       </Accordion>
 

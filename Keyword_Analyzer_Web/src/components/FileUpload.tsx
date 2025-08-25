@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import {
   Box,
@@ -10,12 +10,15 @@ import {
   Switch,
   FormControlLabel,
   Alert,
+  Collapse,
 } from '@mui/material';
 import {
   CloudUpload,
   Folder,
   FileCopy,
   Delete,
+  ExpandMore,
+  ExpandLess,
 } from '@mui/icons-material';
 import { useAppStore } from '../store';
 
@@ -32,6 +35,8 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFilesSelected }) => {
     setError,
     setSuccess,
   } = useAppStore();
+
+  const [showSelectedFiles, setShowSelectedFiles] = useState(true);
 
   const onDrop = useCallback(
     (acceptedFiles: File[]) => {
@@ -184,9 +189,19 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFilesSelected }) => {
       {acceptedFiles.length > 0 && (
         <Box sx={{ mt: 2 }}>
           <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
-            <Typography variant="subtitle2" color="primary">
-              Seçilen Dosyalar ({acceptedFiles.length})
-            </Typography>
+            <Stack direction="row" alignItems="center" spacing={1}>
+              <Typography variant="subtitle2" color="primary">
+                Seçilen Dosyalar ({acceptedFiles.length})
+              </Typography>
+              <IconButton
+                size="small"
+                onClick={() => setShowSelectedFiles(!showSelectedFiles)}
+                color="primary"
+                title={showSelectedFiles ? "Dosyaları gizle" : "Dosyaları göster"}
+              >
+                {showSelectedFiles ? <ExpandLess /> : <ExpandMore />}
+              </IconButton>
+            </Stack>
             <IconButton
               size="small"
               onClick={clearAllFiles}
@@ -197,37 +212,39 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFilesSelected }) => {
             </IconButton>
           </Stack>
 
-          <Stack spacing={1}>
-            {acceptedFiles.map((file, index) => (
-              <Chip
-                key={index}
-                icon={<FileCopy />}
-                label={`${file.name} (${(file.size / 1024).toFixed(1)} KB)`}
-                onDelete={() => removeFile(file)}
-                variant="outlined"
-                color="primary"
-                sx={{ justifyContent: 'space-between' }}
-              />
-            ))}
-          </Stack>
-
-          {dateMode && (
-            <Box sx={{ mt: 2 }}>
-              <Typography variant="subtitle2" color="secondary" gutterBottom>
-                Klasör Yapısı:
-              </Typography>
-              {Object.entries(groupFilesByFolder(Array.from(acceptedFiles))).map(([folder, files]) => (
+          <Collapse in={showSelectedFiles}>
+            <Stack spacing={1}>
+              {acceptedFiles.map((file, index) => (
                 <Chip
-                  key={folder}
-                  icon={<Folder />}
-                  label={`${folder} (${files.length} dosya)`}
+                  key={index}
+                  icon={<FileCopy />}
+                  label={`${file.name} (${(file.size / 1024).toFixed(1)} KB)`}
+                  onDelete={() => removeFile(file)}
                   variant="outlined"
-                  color="secondary"
-                  sx={{ m: 0.5 }}
+                  color="primary"
+                  sx={{ justifyContent: 'space-between' }}
                 />
               ))}
-            </Box>
-          )}
+            </Stack>
+
+            {dateMode && (
+              <Box sx={{ mt: 2 }}>
+                <Typography variant="subtitle2" color="secondary" gutterBottom>
+                  Klasör Yapısı:
+                </Typography>
+                {Object.entries(groupFilesByFolder(Array.from(acceptedFiles))).map(([folder, files]) => (
+                  <Chip
+                    key={folder}
+                    icon={<Folder />}
+                    label={`${folder} (${files.length} dosya)`}
+                    variant="outlined"
+                    color="secondary"
+                    sx={{ m: 0.5 }}
+                  />
+                ))}
+              </Box>
+            )}
+          </Collapse>
         </Box>
       )}
     </Box>

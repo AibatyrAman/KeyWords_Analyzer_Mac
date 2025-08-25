@@ -27,6 +27,7 @@ export interface FilterState {
   excludeTerms: string[];
   filterNonLatin: boolean;
   nullHandling: 'zero' | 'null' | 'exclude'; // null değerleri nasıl işleyeceğimiz
+  removeDuplicates: boolean; // Duplicate keyword'leri çıkar
 }
 
 export interface AppState {

@@ -96,3 +96,6 @@ describe('DataTable', () => {
     expect(screen.getByText('Veri bulunamadı')).toBeInTheDocument();
   });
 });
+
+
+

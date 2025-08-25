@@ -28,6 +28,7 @@ interface AppStore extends AppState {
   removeExcludeTerm: (term: string) => void;
   setFilterNonLatin: (filter: boolean) => void;
   setNullHandling: (handling: 'zero' | 'null' | 'exclude') => void;
+  setRemoveDuplicates: (remove: boolean) => void;
   clearFilters: () => void;
   applyFilters: () => void;
   
@@ -46,6 +47,7 @@ const initialFilters: FilterState = {
   excludeTerms: [],
   filterNonLatin: false,
   nullHandling: 'zero',
+  removeDuplicates: false,
 };
 
 // Güvenli sayı dönüşümü yardımcı fonksiyonu
@@ -285,6 +287,32 @@ export const useAppStore = create<AppStore>((set, get) => ({
         return Object.values(row).every(val => val !== null && val !== undefined && val !== '');
       });
     }
+
+    // Duplicates removal - aynı kategorideki duplicate keyword'lerde difficulty değeri düşük olanı çıkar
+    if (state.filters.removeDuplicates) {
+      const keywordMap = new Map<string, KeywordData>();
+      
+      filteredData.forEach(item => {
+        const keyword = String(item.Keyword || '').toLowerCase();
+        const category = String(item.Category || '');
+        const key = `${keyword}|${category}`;
+        
+        if (keywordMap.has(key)) {
+          // Aynı keyword ve kategori varsa, difficulty değeri yüksek olanı tut
+          const existing = keywordMap.get(key)!;
+          const existingDifficulty = safeNumberConversion(existing.Difficulty);
+          const currentDifficulty = safeNumberConversion(item.Difficulty);
+          
+          if (currentDifficulty > existingDifficulty) {
+            keywordMap.set(key, item);
+          }
+        } else {
+          keywordMap.set(key, item);
+        }
+      });
+      
+      filteredData = Array.from(keywordMap.values());
+    }
     
     set({ currentTable: filteredData });
   },
@@ -293,4 +321,12 @@ export const useAppStore = create<AppStore>((set, get) => ({
   setSortDirection: (direction) => set({ sortDirection: direction }),
   
   clearMessages: () => set({ error: null, success: null }),
+  setRemoveDuplicates: (remove) => {
+    set((state) => ({
+      filters: {
+        ...state.filters,
+        removeDuplicates: remove,
+      },
+    }));
+  },
 })); 
