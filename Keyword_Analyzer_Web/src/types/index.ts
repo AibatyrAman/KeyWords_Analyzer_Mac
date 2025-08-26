@@ -25,6 +25,7 @@ export interface FilterState {
   booleanFilters: Record<string, boolean | null>; // null = tümü, true = sadece true, false = sadece false
   searchTerms: string[];
   excludeTerms: string[];
+  similarSearchTerms: string[]; // Benzer keyword arama terimleri
   filterNonLatin: boolean;
   nullHandling: 'zero' | 'null' | 'exclude'; // null değerleri nasıl işleyeceğimiz
   removeDuplicates: boolean; // Duplicate keyword'leri çıkar

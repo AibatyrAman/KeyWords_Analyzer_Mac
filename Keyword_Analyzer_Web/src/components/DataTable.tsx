@@ -146,9 +146,7 @@ export const DataTable: React.FC<DataTableProps> = ({ data, title }) => {
         const keyword = String((row as KeywordData).Keyword || '').toLowerCase();
         return filters.searchTerms.some(term => {
           const termLower = term.toLowerCase();
-          return keyword.includes(termLower) || 
-                 keyword.startsWith(termLower) || 
-                 keyword.endsWith(termLower);
+          return keyword.includes(termLower)
         });
       });
     }
@@ -160,9 +158,7 @@ export const DataTable: React.FC<DataTableProps> = ({ data, title }) => {
         const keyword = String((row as KeywordData).Keyword || '').toLowerCase();
         return !filters.excludeTerms.some(term => {
           const termLower = term.toLowerCase();
-          return keyword.includes(termLower) || 
-                 keyword.startsWith(termLower) || 
-                 keyword.endsWith(termLower);
+          return keyword.includes(termLower)
         });
       });
     }

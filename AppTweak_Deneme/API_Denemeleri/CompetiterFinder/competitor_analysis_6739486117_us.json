@@ -1,0 +1,56 @@
+{
+  "my_app": {
+    "app_id": "6739486117",
+    "title": "Deco: AI Remodel & Home Design",
+    "dna_subclass_id": 66,
+    "dna_subclass_label": "Furniture & Home Design Planners"
+  },
+  "analysis_summary": {
+    "total_apps_analyzed": 20,
+    "competitors_found": 8,
+    "dna_category_apps": 69,
+    "customers_also_bought_apps": 10
+  },
+  "competitors": [
+    {
+      "app_id": "6503702359",
+      "title": "AI house design - Renomo",
+      "reason": "Benzer işlevsellik ve özellikler, hedef kullanıcı kitlesi ve ana özelliklerin benzerliği"
+    },
+    {
+      "app_id": "6747612920",
+      "title": "NewHome AI",
+      "reason": "Benzer işlevsellik ve özellikler, hedef kullanıcı kitlesi ve ana özelliklerin benzerliği"
+    },
+    {
+      "app_id": "6740799004",
+      "title": "Home AI - Interior Design",
+      "reason": "Benzer işlevsellik ve özellikler, hedef kullanıcı kitlesi ve ana özelliklerin benzerliği"
+    },
+    {
+      "app_id": "6446040791",
+      "title": "Remodel AI - Home Design",
+      "reason": "Benzer işlevsellik ve özellikler"
+    },
+    {
+      "app_id": "6599855511",
+      "title": "AI Home Design - Decor",
+      "reason": "Benzer işlevsellik ve özellikler"
+    },
+    {
+      "app_id": "6746599956",
+      "title": "Decofy:AI House Design Planner",
+      "reason": "Benzer işlevsellik ve özellikler"
+    },
+    {
+      "app_id": "6744885843",
+      "title": "CozyAI - AI Home Design",
+      "reason": "Benzer işlevsellik ve özellikler"
+    },
+    {
+      "app_id": "6742654523",
+      "title": "AI Home Design - Ruma",
+      "reason": "Benzer işlevsellik ve özellikler"
+    }
+  ]
+}

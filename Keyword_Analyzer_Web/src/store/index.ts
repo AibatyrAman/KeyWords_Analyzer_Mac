@@ -26,6 +26,8 @@ interface AppStore extends AppState {
   removeSearchTerm: (term: string) => void;
   addExcludeTerm: (term: string) => void;
   removeExcludeTerm: (term: string) => void;
+  addSimilarSearchTerm: (term: string) => void;
+  removeSimilarSearchTerm: (term: string) => void;
   setFilterNonLatin: (filter: boolean) => void;
   setNullHandling: (handling: 'zero' | 'null' | 'exclude') => void;
   setRemoveDuplicates: (remove: boolean) => void;
@@ -45,6 +47,7 @@ const initialFilters: FilterState = {
   booleanFilters: {},
   searchTerms: [],
   excludeTerms: [],
+  similarSearchTerms: [],
   filterNonLatin: false,
   nullHandling: 'zero',
   removeDuplicates: false,
@@ -72,6 +75,48 @@ const safeNumberConversion = (value: any): number => {
   } catch {
     return 0;
   }
+};
+
+// Basit string similarity hesaplama fonksiyonu
+const calculateSimilarity = (str1: string, str2: string): number => {
+  if (str1 === str2) return 1;
+  if (str1.length === 0 || str2.length === 0) return 0;
+  
+  const longer = str1.length > str2.length ? str1 : str2;
+  const shorter = str1.length > str2.length ? str2 : str1;
+  
+  if (longer.length === 0) return 1;
+  
+  return (longer.length - editDistance(longer, shorter)) / longer.length;
+};
+
+// Edit distance hesaplama (Levenshtein distance)
+const editDistance = (str1: string, str2: string): number => {
+  const matrix = [];
+  
+  for (let i = 0; i <= str2.length; i++) {
+    matrix[i] = [i];
+  }
+  
+  for (let j = 0; j <= str1.length; j++) {
+    matrix[0][j] = j;
+  }
+  
+  for (let i = 1; i <= str2.length; i++) {
+    for (let j = 1; j <= str1.length; j++) {
+      if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1,
+          matrix[i][j - 1] + 1,
+          matrix[i - 1][j] + 1
+        );
+      }
+    }
+  }
+  
+  return matrix[str2.length][str1.length];
 };
 
 export const useAppStore = create<AppStore>((set, get) => ({
@@ -205,6 +250,36 @@ export const useAppStore = create<AppStore>((set, get) => ({
     }));
   },
   
+  addSimilarSearchTerm: (term) => {
+    set((state) => {
+      const normalizedTerm = term.toLowerCase().trim();
+      if (!normalizedTerm) return state;
+      
+      const exists = state.filters.similarSearchTerms.some(
+        (t) => t.toLowerCase() === normalizedTerm
+      );
+      
+      if (!exists) {
+        return {
+          filters: {
+            ...state.filters,
+            similarSearchTerms: [...state.filters.similarSearchTerms, term.trim()],
+          },
+        };
+      }
+      return state;
+    });
+  },
+  
+  removeSimilarSearchTerm: (term) => {
+    set((state) => ({
+      filters: {
+        ...state.filters,
+        similarSearchTerms: state.filters.similarSearchTerms.filter((t) => t !== term),
+      },
+    }));
+  },
+  
   setFilterNonLatin: (filter) => {
     set((state) => ({
       filters: {
@@ -271,6 +346,41 @@ export const useAppStore = create<AppStore>((set, get) => ({
           keyword.includes(term.toLowerCase())
         );
       });
+    }
+    
+    // Benzer keyword arama terimlerini uygula
+    if (state.filters.similarSearchTerms.length > 0) {
+      const allKeywords = filteredData.map(row => String(row.Keyword || ''));
+      const similarKeywords = new Set<string>();
+      
+      // Her benzer arama terimi için keyword'leri bul
+      state.filters.similarSearchTerms.forEach(searchTerm => {
+        const searchWords = searchTerm.toLowerCase().split(/\s+/);
+        
+        allKeywords.forEach(keyword => {
+          const keywordWords = keyword.toLowerCase().split(/\s+/);
+          
+          // Semantic similarity check
+          const isSimilar = searchWords.some(searchWord => 
+            keywordWords.some(keywordWord => 
+              keywordWord.includes(searchWord) || 
+              searchWord.includes(keywordWord) ||
+              calculateSimilarity(searchWord, keywordWord) > 0.7
+            )
+          );
+          
+          if (isSimilar) {
+            similarKeywords.add(keyword);
+          }
+        });
+      });
+      
+      // Sadece benzer keyword'leri tut
+      if (similarKeywords.size > 0) {
+        filteredData = filteredData.filter(row => 
+          similarKeywords.has(String(row.Keyword || ''))
+        );
+      }
     }
     
     // Latin harici alfabeleri çıkar

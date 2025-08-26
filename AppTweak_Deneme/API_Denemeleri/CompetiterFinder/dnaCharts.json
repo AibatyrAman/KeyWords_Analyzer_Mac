@@ -1,0 +1,575 @@
+{
+    "result": [
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 1,
+        "application_id": "836767708"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 2,
+        "application_id": "6464476667"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 3,
+        "application_id": "6502747597"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 4,
+        "application_id": "606173978"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 5,
+        "application_id": "898852501"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 6,
+        "application_id": "6477533581"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 7,
+        "application_id": "1446058110"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 8,
+        "application_id": "1609970658"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 9,
+        "application_id": "427424432"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 10,
+        "application_id": "1076159017"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 11,
+        "application_id": "1489474755"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 12,
+        "application_id": "525522332"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 13,
+        "application_id": "1066784070"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 14,
+        "application_id": "1614588021"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 15,
+        "application_id": "399563465"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 16,
+        "application_id": "463768717"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 17,
+        "application_id": "6446040791"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 18,
+        "application_id": "1570446253"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 19,
+        "application_id": "1661709494"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 20,
+        "application_id": "439688430"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 21,
+        "application_id": "6745568296"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 22,
+        "application_id": "6502518332"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 23,
+        "application_id": "357150332"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 24,
+        "application_id": "6446314875"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 25,
+        "application_id": "6503343619"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 26,
+        "application_id": "6599855511"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 27,
+        "application_id": "6748399929"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 28,
+        "application_id": "6740799004"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 29,
+        "application_id": "6474176950"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 30,
+        "application_id": "6689517348"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 31,
+        "application_id": "1178963471"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 32,
+        "application_id": "6748347100"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 33,
+        "application_id": "6746776240"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 34,
+        "application_id": "6446172225"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 35,
+        "application_id": "1662218807"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 36,
+        "application_id": "6746599956"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 37,
+        "application_id": "6744885843"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 38,
+        "application_id": "779363176"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 39,
+        "application_id": "6747615328"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 40,
+        "application_id": "6749257719"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 41,
+        "application_id": "6560106568"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 42,
+        "application_id": "6448904568"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 43,
+        "application_id": "6746367194"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 44,
+        "application_id": "6742654523"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 45,
+        "application_id": "6444421373"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 46,
+        "application_id": "6747612920"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 47,
+        "application_id": "6748565649"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 48,
+        "application_id": "6745242813"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 49,
+        "application_id": "6745303581"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 50,
+        "application_id": "6746492764"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 51,
+        "application_id": "6745120937"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 52,
+        "application_id": "6740781574"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 53,
+        "application_id": "6743031314"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 54,
+        "application_id": "6502674249"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 55,
+        "application_id": "6747693572"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 56,
+        "application_id": "6739486117"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 57,
+        "application_id": "6747994042"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 58,
+        "application_id": "1549380017"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 59,
+        "application_id": "6745242503"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 60,
+        "application_id": "6745439575"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 61,
+        "application_id": "6748250699"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 62,
+        "application_id": "6743382731"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 63,
+        "application_id": "6747299850"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 64,
+        "application_id": "6747701210"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 65,
+        "application_id": "6702028299"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 66,
+        "application_id": "6740210571"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 67,
+        "application_id": "6748242213"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 68,
+        "application_id": "6449718419"
+      },
+      {
+        "dna_id": 66,
+        "country": "us",
+        "type": "free",
+        "store": "ios",
+        "rank": 69,
+        "application_id": "6499474009"
+      }
+    ],
+    "metadata": {
+      "request": {
+        "path": "/api/public/store/charts/dna/current.json",
+        "params": {
+          "store": "ios",
+          "dna_ids": [
+            66
+          ],
+          "countries": [
+            "us"
+          ],
+          "type": "free"
+        },
+        "cost": 51,
+        "max_credit_cost": 51,
+        "status": 200
+      },
+      "response": null
+    }
+  }
