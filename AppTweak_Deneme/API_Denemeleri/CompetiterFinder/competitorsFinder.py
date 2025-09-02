@@ -119,9 +119,16 @@ class CompetitorAnalyzer:
             for comp in batch:
                 # Description'ı kısalt
                 short_desc = comp['description'][:500] if len(comp['description']) > 500 else comp['description']
+                release_date = comp.get('release_date', 'Bilinmiyor')
+                developer = comp.get('developer', 'Bilinmiyor')
+                rating = comp.get('rating', 0)
+                
                 prompt += f"""
             UYGULAMA ID: {comp['app_id']}
             BAŞLIK: {comp['title']}
+            GELİŞTİRİCİ: {developer}
+            YAYIN TARİHİ: {release_date}
+            PUAN: {rating}
             AÇIKLAMA: {short_desc}
             ---
             """
@@ -250,7 +257,10 @@ class CompetitorAnalyzer:
             competitors_data.append({
                 "app_id": comp_app_id,
                 "title": comp_metadata.get("title", ""),
-                "description": comp_metadata.get("description", "")
+                "description": comp_metadata.get("description", ""),
+                "release_date": comp_metadata.get("release_date", ""),
+                "developer": comp_metadata.get("developer", {}).get("name", ""),
+                "rating": comp_metadata.get("rating", {}).get("average", 0)
             })
         
         print(f"📝 {len(competitors_data)} uygulama için veri hazırlandı")
@@ -273,7 +283,8 @@ class CompetitorAnalyzer:
                 "dna_category_apps": len(dna_app_ids),
                 "customers_also_bought_apps": len(customers_also_bought)
             },
-            "competitors": competitors
+            "competitors": competitors,
+            "analysis_date": time.strftime("%Y-%m-%d")
         }
         
         print(f"✅ Analiz tamamlandı! {len(competitors)} rakip bulundu.")
@@ -282,7 +293,7 @@ class CompetitorAnalyzer:
 def main():
     # API anahtarları
     APPTWEAK_API_KEY = "JyjSyfgl7NeQOYdMulFx3nUPN3g"
-    GPT_API_KEY = "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"
+    GPT_API_KEY =  os.getenv("REACT_APP_OPENAI_API_KEY")
     
     print("🏠 AppTweak Rakipler Analiz Sistemi")
     print("=" * 50)
@@ -317,10 +328,18 @@ def main():
             for i, comp in enumerate(result['competitors'], 1):
                 print(f"{i}. {comp['title']} (ID: {comp['app_id']})")
                 print(f"   💡 Neden: {comp['reason']}")
+                print(f"   📅 Yayın Tarihi: {comp.get('release_date', 'Bilinmiyor')}")
+                print(f"   👨‍💻 Geliştirici: {comp.get('developer', 'Bilinmiyor')}")
+                print(f"   ⭐ Puan: {comp.get('rating', 0)}")
                 print()
         
         # Sonuçları JSON dosyasına kaydet
-        output_file = f"competitor_analysis_{app_id}_{country}.json"
+        app_name = result['my_app']['title']
+        safe_app_name = "".join(c for c in app_name if c.isalnum() or c in (' ', '-', '_')).rstrip()
+        safe_app_name = safe_app_name.replace(' ', '_')
+        today_date = time.strftime("%Y-%m-%d")
+        
+        output_file = f"{safe_app_name}_competitor_analysis_{country}_{today_date}.json"
         with open(output_file, 'w', encoding='utf-8') as f:
             json.dump(result, f, ensure_ascii=False, indent=2)
         

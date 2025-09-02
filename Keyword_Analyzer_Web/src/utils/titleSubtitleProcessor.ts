@@ -1,7 +1,7 @@
 import { KeywordData, TitleSubtitleData } from '../types';
 
 // OpenAI API configuration
-const OPENAI_API_KEY = "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";
+const OPENAI_API_KEY = "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";
 
 // Banned words list
 const BANNED_WORDS = [
@@ -106,21 +106,7 @@ Return the list of branded words and proper nouns in the following format:
         })
       });
 
-      // Check if response is successful
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('OpenAI API error:', response.status, errorText);
-        throw new Error(`OpenAI API hatası: ${response.status}. Lütfen tekrar deneyin.`);
-      }
-
       const result = await response.json();
-      
-      // Check if response is valid
-      if (!result.choices || !result.choices[0] || !result.choices[0].message || !result.choices[0].message.content) {
-        console.error('Invalid OpenAI response:', result);
-        throw new Error('OpenAI API yanıtı geçersiz. Lütfen tekrar deneyin.');
-      }
-      
       const answer = result.choices[0].message.content.trim();
       
       let brandedWords: string[] = [];
@@ -186,21 +172,7 @@ Return the processed list in JSON list format. For example:
         })
       });
 
-      // Check if response is successful
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('OpenAI API error:', response.status, errorText);
-        throw new Error(`OpenAI API hatası: ${response.status}. Lütfen tekrar deneyin.`);
-      }
-
       const result = await response.json();
-      
-      // Check if response is valid
-      if (!result.choices || !result.choices[0] || !result.choices[0].message || !result.choices[0].message.content) {
-        console.error('Invalid OpenAI response:', result);
-        throw new Error('OpenAI API yanıtı geçersiz. Lütfen tekrar deneyin.');
-      }
-      
       const answer = result.choices[0].message.content.trim();
       
       let baseForms: string[] = [];

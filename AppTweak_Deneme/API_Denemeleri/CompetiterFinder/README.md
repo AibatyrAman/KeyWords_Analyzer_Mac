@@ -8,6 +8,9 @@ Bu sistem, AppTweak API'si kullanarak mobil uygulamanızın rakiplerini otomatik
 - **"Customers Also Bought" Analizi**: Kullanıcıların birlikte indirdiği uygulamaları inceler
 - **AI Destekli Analiz**: GPT API ile akıllı rakip analizi yapar
 - **Detaylı Raporlama**: JSON formatında kapsamlı raporlar oluşturur
+- **Keyword Extraction**: Rakiplerin App Store keyword'lerini otomatik çeker
+- **CSV Export**: Keyword'leri CSV formatında export eder
+- **Token Maliyet Hesaplama**: API kullanım maliyetini önceden hesaplar
 
 ## 📋 Gereksinimler
 
@@ -30,7 +33,7 @@ GPT_API_KEY = "your_openai_api_key"
 
 ## 🎯 Kullanım
 
-### Komut Satırından Çalıştırma
+### 1. Rakipleri Bulma
 
 ```bash
 python competitorsFinder.py
@@ -39,6 +42,18 @@ python competitorsFinder.py
 Program size şu bilgileri soracak:
 - **Uygulama ID'si**: Analiz edilecek uygulamanın App Store ID'si
 - **Ülke Kodu**: Analiz edilecek ülke (varsayılan: us)
+
+### 2. Rakiplerin Keyword'lerini Çekme
+
+```bash
+python keywordExtractor.py
+```
+
+Program size şu bilgileri soracak:
+- **Competitor Analysis Dosyası**: Hangi analiz dosyasını kullanacağınız
+- **Ülke Kodu**: Keyword'lerin çekileceği ülke (varsayılan: us)
+- **Keyword Sayısı**: Her rakip için kaç keyword çekileceği (1-1000)
+- **Onay**: Token maliyeti için onay
 
 ### Programatik Kullanım
 
@@ -99,7 +114,19 @@ Sistem şu JSON formatında sonuç döndürür:
 ## 📁 Çıktı Dosyaları
 
 Program çalıştığında şu dosyalar oluşturulur:
+
+### Competitor Analysis
 - `competitor_analysis_{app_id}_{country}.json`: Detaylı analiz raporu
+
+### Keyword Extraction
+- `competitor_keywords_{country}.csv`: Rakiplerin keyword'leri CSV formatında
+  - `competitor_app_id`: Rakip uygulama ID'si
+  - `competitor_title`: Rakip uygulama başlığı
+  - `keyword`: App Store keyword'ü
+  - `ranking`: Keyword sıralaması
+  - `is_typo`: Typo olup olmadığı
+  - `volume`: Keyword hacmi
+  - `score`: Keyword skoru
 
 ## ⚠️ Önemli Notlar
 
@@ -117,6 +144,8 @@ Program çalıştığında şu dosyalar oluşturulur:
 
 ## 📈 Örnek Kullanım
 
+### 1. Rakipleri Bulma
+
 ```bash
 $ python competitorsFinder.py
 🏠 AppTweak Rakipler Analiz Sistemi
@@ -130,29 +159,65 @@ $ python competitorsFinder.py
 📊 DNA Subclass ID: 66
 📈 DNA kategorisindeki uygulamalar çekiliyor (ID: 66)...
 📊 DNA kategorisinde 69 uygulama bulundu
-🔗 Toplam 79 benzersiz uygulama ID'si (DNA + Customers also bought)
+🔗 Toplam 20 uygulama ID'si analiz edilecek (5'er gruplar halinde)
 📋 Uygulamaların metadata'ları çekiliyor...
-📝 79 uygulama için veri hazırlandı
-🤖 GPT ile rakip analizi yapılıyor...
-✅ Analiz tamamlandı! 12 rakip bulundu.
+📝 20 uygulama için veri hazırlandı
+🤖 GPT ile rakip analizi yapılıyor (5'er uygulama grupları halinde)...
+✅ 5 uygulama analiz edildi, 2 rakip bulundu
+✅ 5 uygulama analiz edildi, 3 rakip bulundu
+✅ 5 uygulama analiz edildi, 2 rakip bulundu
+✅ 5 uygulama analiz edildi, 2 rakip bulundu
+✅ Analiz tamamlandı! 9 rakip bulundu.
 
 ==================================================
 📊 ANALİZ SONUÇLARI
 ==================================================
 🎯 Benim Uygulamam: Deco: AI Remodel & Home Design (ID: 6739486117)
 📂 Kategori: Furniture & Home Design Planners
-📈 Analiz edilen toplam uygulama: 79
-🏆 Bulunan rakip sayısı: 12
-
-🎯 BULUNAN RAKİPLER:
-------------------------------
-1. Room Planner (ID: 836767708)
-   💡 Neden: Benzer AI tabanlı ev tasarım özellikleri
-
-2. Planner 5D (ID: 6464476667)
-   💡 Neden: 3D ev tasarım ve dekorasyon odaklı
+📈 Analiz edilen toplam uygulama: 20
+🏆 Bulunan rakip sayısı: 9
 
 💾 Sonuçlar 'competitor_analysis_6739486117_us.json' dosyasına kaydedildi.
+```
+
+### 2. Rakiplerin Keyword'lerini Çekme
+
+```bash
+$ python keywordExtractor.py
+🔑 AppTweak Keyword Extractor
+==================================================
+📁 Bulunan competitor analysis dosyaları:
+   1. competitor_analysis_6739486117_us.json
+   2. competitor_analysis_6743965028_us.json
+
+📋 Hangi dosyayı kullanmak istiyorsunuz? (1-2): 1
+✅ Seçilen dosya: competitor_analysis_6739486117_us.json
+🌍 Ülke kodu girin (varsayılan: us): us
+🏆 8 rakip bulundu
+==================================================
+📊 Her rakip için kaç keyword çekilsin? (1-1000): 100
+
+💰 TOKEN MALİYETİ HESABI:
+   • Rakipler: 8
+   • Her rakip için keyword: 100
+   • Toplam token: 800
+   • Tahmini maliyet: $0.0800 (yaklaşık)
+
+❓ 800 token harcayarak devam etmek istiyor musunuz? (y/n): y
+✅ Onaylandı! Keyword'ler çekiliyor...
+
+📱 [1/8] AI house design - Renomo (ID: 6503702359)
+   🔍 Keyword'ler çekiliyor...
+   ✅ 100 keyword çekildi
+
+📱 [2/8] NewHome AI (ID: 6747612920)
+   🔍 Keyword'ler çekiliyor...
+   ✅ 100 keyword çekildi
+
+🎉 İşlem tamamlandı!
+📊 Toplam 726 keyword çekildi
+💾 Sonuçlar 'competitor_keywords_us.csv' dosyasına kaydedildi
+🔍 Benzersiz keyword sayısı: 628
 ```
 
 ## 🤝 Katkıda Bulunma
@@ -166,3 +231,5 @@ Bu projeye katkıda bulunmak için:
 ## 📄 Lisans
 
 Bu proje MIT lisansı altında lisanslanmıştır.
+
+

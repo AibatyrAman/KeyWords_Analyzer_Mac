@@ -18,7 +18,6 @@ import {
   InputLabel,
   RadioGroup,
   Radio,
-  CircularProgress,
   Alert,
 } from '@mui/material';
 import {
@@ -27,11 +26,9 @@ import {
   Remove,
   Close,
   FilterList,
-  Search,
 } from '@mui/icons-material';
 import { useAppStore } from '../store';
 import { KeywordData, ColumnInfo } from '../types';
-import { SimilarKeywordFinder } from '../utils/similarKeywordFinder';
 
 interface FilterPanelProps {
   data: KeywordData[] | null;
@@ -52,20 +49,19 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({ data, columnInfo }) =>
     setFilterNonLatin,
     setNullHandling,
     setRemoveDuplicates,
+    setDuplicateRemovalStrategy,
+    setKeepHighestDifficulty,
+    setKeepHighestVolume,
     clearFilters,
     applyFilters,
   } = useAppStore();
 
   const [searchInput, setSearchInput] = useState('');
-  const [similarSearchInput, setSimilarSearchInput] = useState('');
-  const [isSearchingSimilar, setIsSearchingSimilar] = useState(false);
-  const [similarSearchError, setSimilarSearchError] = useState<string | null>(null);
   const [columnFilters, setColumnFilters] = useState<Record<string, { min: number; max: number; display: string; originalMin: number; originalMax: number }>>({});
   
   // Geçici filtre state'leri
   const [tempSearchTerms, setTempSearchTerms] = useState<string[]>([]);
   const [tempExcludeTerms, setTempExcludeTerms] = useState<string[]>([]);
-  const [tempSimilarSearchTerms, setTempSimilarSearchTerms] = useState<string[]>([]);
   const [tempFilterNonLatin, setTempFilterNonLatin] = useState(false);
   const [tempRemoveDuplicates, setTempRemoveDuplicates] = useState(false);
   const [tempColumnFilters, setTempColumnFilters] = useState<Record<string, { min: number; max: number }>>({});
@@ -99,7 +95,6 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({ data, columnInfo }) =>
   useEffect(() => {
     setTempSearchTerms(filters.searchTerms);
     setTempExcludeTerms(filters.excludeTerms);
-    setTempSimilarSearchTerms(filters.similarSearchTerms);
     setTempFilterNonLatin(filters.filterNonLatin);
     setTempRemoveDuplicates(filters.removeDuplicates);
     setTempBooleanFilters(filters.booleanFilters);
@@ -139,48 +134,10 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({ data, columnInfo }) =>
     setTempExcludeTerms(tempExcludeTerms.filter(t => t !== term));
   };
 
-  const handleSimilarSearch = async () => {
-    if (!similarSearchInput.trim() || !data || data.length === 0) {
-      setSimilarSearchError('Lütfen bir arama terimi girin ve veri yüklendiğinden emin olun');
-      return;
-    }
-
-    setIsSearchingSimilar(true);
-    setSimilarSearchError(null);
-
-    try {
-      const availableKeywords = data.map(item => String(item.Keyword || '')).filter(Boolean);
-      const similarKeywords = await SimilarKeywordFinder.findSimilarKeywords(
-        similarSearchInput.trim(),
-        availableKeywords,
-        10
-      );
-
-      if (similarKeywords.length > 0) {
-        // Benzer keyword'leri geçici state'e ekle
-        setTempSimilarSearchTerms(prev => [...prev, similarSearchInput.trim()]);
-        setSimilarSearchInput('');
-        setSimilarSearchError(null);
-      } else {
-        setSimilarSearchError('Benzer keyword bulunamadı');
-      }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen hata';
-      setSimilarSearchError(`Benzer keyword arama hatası: ${errorMessage}`);
-    } finally {
-      setIsSearchingSimilar(false);
-    }
-  };
-
-  const handleRemoveSimilarSearchTerm = (term: string) => {
-    setTempSimilarSearchTerms(tempSimilarSearchTerms.filter(t => t !== term));
-  };
-
   const handleApplyFilters = () => {
     // Geçici filtreleri gerçek filtrelere uygula
     tempSearchTerms.forEach(term => addSearchTerm(term));
     tempExcludeTerms.forEach(term => addExcludeTerm(term));
-    tempSimilarSearchTerms.forEach(term => addSimilarSearchTerm(term));
     setFilterNonLatin(tempFilterNonLatin);
     setRemoveDuplicates(tempRemoveDuplicates);
     setNullHandling(tempNullHandling);
@@ -202,7 +159,6 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({ data, columnInfo }) =>
   const handleClearFilters = () => {
     setTempSearchTerms([]);
     setTempExcludeTerms([]);
-    setTempSimilarSearchTerms([]);
     setTempFilterNonLatin(false);
     setTempRemoveDuplicates(false);
     setTempColumnFilters({});
@@ -409,95 +365,100 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({ data, columnInfo }) =>
         </AccordionDetails>
       </Accordion>
 
-      {/* Benzerini Ara */}
-      <Accordion defaultExpanded>
-        <AccordionSummary expandIcon={<ExpandMore />}>
-          <Typography>Benzerini Ara (GPT)</Typography>
-        </AccordionSummary>
-        <AccordionDetails>
-          <Stack spacing={2}>
-            <Box sx={{ display: 'flex', gap: 1 }}>
-              <TextField
-                fullWidth
-                size="small"
-                placeholder="Örn: UV index, weather app, photo editor"
-                value={similarSearchInput}
-                onChange={(e) => setSimilarSearchInput(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleSimilarSearch()}
-                disabled={isSearchingSimilar}
+              {/* Duplicate Removal Stratejileri */}
+        <Accordion defaultExpanded>
+          <AccordionSummary expandIcon={<ExpandMore />}>
+            <Typography>Duplicate Removal Stratejileri</Typography>
+          </AccordionSummary>
+          <AccordionDetails>
+            <Stack spacing={2}>
+              {/* Ana Duplicate Removal Switch */}
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={tempRemoveDuplicates}
+                    onChange={(e) => setTempRemoveDuplicates(e.target.checked)}
+                  />
+                }
+                label="Duplicate keyword'leri çıkar"
               />
-              <Button
-                variant="contained"
-                size="small"
-                onClick={handleSimilarSearch}
-                startIcon={isSearchingSimilar ? <CircularProgress size={16} /> : <Search />}
-                disabled={isSearchingSimilar || !data || data.length === 0}
-              >
-                {isSearchingSimilar ? 'ARANIYOR...' : 'BENZERINI ARA'}
-              </Button>
-            </Box>
 
-            {similarSearchError && (
-              <Alert severity="error" onClose={() => setSimilarSearchError(null)}>
-                {similarSearchError}
-              </Alert>
-            )}
+              {tempRemoveDuplicates && (
+                <>
+                  {/* Strateji Seçimi */}
+                  <FormControl fullWidth size="small">
+                    <InputLabel>Duplicate Removal Stratejisi</InputLabel>
+                    <Select
+                      value={filters.duplicateRemovalStrategy}
+                      onChange={(e) => setDuplicateRemovalStrategy(e.target.value as any)}
+                      label="Duplicate Removal Stratejisi"
+                    >
+                      <MenuItem value="none">Hiçbiri (Duplicate'leri koru)</MenuItem>
+                      <MenuItem value="same_category">Sadece Aynı Kategori İçinde</MenuItem>
+                      <MenuItem value="all_duplicates">Tüm Duplicate'leri Çıkar</MenuItem>
+                      <MenuItem value="smart_removal">Akıllı Removal</MenuItem>
+                    </Select>
+                  </FormControl>
 
-            {tempSimilarSearchTerms.length > 0 && (
-              <Box>
-                <Typography variant="body2" sx={{ mb: 1 }}>
-                  Benzer Arama Terimleri:
-                </Typography>
-                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                  {tempSimilarSearchTerms.map((term) => (
-                    <Chip
-                      key={term}
-                      label={term}
-                      onDelete={() => handleRemoveSimilarSearchTerm(term)}
-                      size="small"
-                      color="secondary"
-                    />
-                  ))}
-                </Stack>
-              </Box>
-            )}
+                  {/* Kriter Seçimi */}
+                  <Box>
+                    <Typography variant="body2" sx={{ mb: 1 }}>
+                      Hangi kriteri kullanarak duplicate'leri çıkarayım?
+                    </Typography>
+                    <Stack direction="row" spacing={2}>
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            checked={filters.keepHighestDifficulty}
+                            onChange={(e) => setKeepHighestDifficulty(e.target.checked)}
+                          />
+                        }
+                        label="Difficulty yüksek olanı tut"
+                      />
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            checked={filters.keepHighestVolume}
+                            onChange={(e) => setKeepHighestVolume(e.target.checked)}
+                          />
+                        }
+                        label="Volume yüksek olanı tut"
+                      />
+                    </Stack>
+                  </Box>
 
-            <Alert severity="info">
-              <Typography variant="body2">
-                Bu özellik GPT API kullanarak yazdığınız keyword'e benzer keyword'leri bulur.
-                Örnek: "UV index" yazarsanız "Sun Tracker", "Weather", "UV tracker" gibi benzer keyword'leri bulur.
-              </Typography>
-            </Alert>
-          </Stack>
-        </AccordionDetails>
-      </Accordion>
+                  {/* Strateji Açıklamaları */}
+                  <Alert severity="info">
+                    <Typography variant="body2">
+                      <strong>Strateji Açıklamaları:</strong><br/>
+                      • <strong>Aynı Kategori:</strong> Sadece aynı kategorideki duplicate'leri çıkarır<br/>
+                      • <strong>Tüm Duplicate:</strong> Kategori fark etmeksizin tüm duplicate'leri çıkarır<br/>
+                      • <strong>Akıllı Removal:</strong> En iyi kriteri otomatik seçer
+                    </Typography>
+                  </Alert>
+                </>
+              )}
+            </Stack>
+          </AccordionDetails>
+        </Accordion>
 
-      {/* Latin Harici Filtre */}
-      <Accordion>
-        <AccordionSummary expandIcon={<ExpandMore />}>
-          <Typography>Gelişmiş Filtreler</Typography>
-        </AccordionSummary>
-        <AccordionDetails>
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={tempFilterNonLatin}
-                onChange={(e) => setTempFilterNonLatin(e.target.checked)}
-              />
-            }
-            label="Sadece Latin alfabesi içeren keyword'leri göster"
-          />
-                     <FormControlLabel
-             control={
-               <Checkbox
-                 checked={tempRemoveDuplicates}
-                 onChange={(e) => setTempRemoveDuplicates(e.target.checked)}
-               />
-             }
-             label="Duplicate keyword'leri çıkar (aynı kategoride difficulty değeri düşük olanı çıkarır)"
-           />
-        </AccordionDetails>
-      </Accordion>
+        {/* Latin Harici Filtre */}
+        <Accordion>
+          <AccordionSummary expandIcon={<ExpandMore />}>
+            <Typography>Gelişmiş Filtreler</Typography>
+          </AccordionSummary>
+          <AccordionDetails>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={tempFilterNonLatin}
+                  onChange={(e) => setTempFilterNonLatin(e.target.checked)}
+                />
+              }
+              label="Sadece Latin alfabesi içeren keyword'leri göster"
+            />
+          </AccordionDetails>
+        </Accordion>
 
       {/* Filtre Butonları */}
       <Box sx={{ mt: 2, display: 'flex', gap: 2 }}>

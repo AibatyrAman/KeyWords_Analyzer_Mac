@@ -31,6 +31,9 @@ interface AppStore extends AppState {
   setFilterNonLatin: (filter: boolean) => void;
   setNullHandling: (handling: 'zero' | 'null' | 'exclude') => void;
   setRemoveDuplicates: (remove: boolean) => void;
+  setDuplicateRemovalStrategy: (strategy: 'none' | 'same_category' | 'all_duplicates' | 'smart_removal') => void;
+  setKeepHighestDifficulty: (keep: boolean) => void;
+  setKeepHighestVolume: (keep: boolean) => void;
   clearFilters: () => void;
   applyFilters: () => void;
   
@@ -50,7 +53,10 @@ const initialFilters: FilterState = {
   similarSearchTerms: [],
   filterNonLatin: false,
   nullHandling: 'zero',
-  removeDuplicates: false,
+  removeDuplicates: true, // Varsayılan olarak açık
+  duplicateRemovalStrategy: 'all_duplicates', // Varsayılan olarak tüm duplicate'leri çıkar
+  keepHighestDifficulty: true, // Varsayılan olarak difficulty yüksek olanı tut
+  keepHighestVolume: false, // Varsayılan olarak volume'u dikkate alma
 };
 
 // Güvenli sayı dönüşümü yardımcı fonksiyonu
@@ -77,46 +83,18 @@ const safeNumberConversion = (value: any): number => {
   }
 };
 
-// Basit string similarity hesaplama fonksiyonu
-const calculateSimilarity = (str1: string, str2: string): number => {
-  if (str1 === str2) return 1;
-  if (str1.length === 0 || str2.length === 0) return 0;
-  
-  const longer = str1.length > str2.length ? str1 : str2;
-  const shorter = str1.length > str2.length ? str2 : str1;
-  
-  if (longer.length === 0) return 1;
-  
-  return (longer.length - editDistance(longer, shorter)) / longer.length;
-};
-
-// Edit distance hesaplama (Levenshtein distance)
-const editDistance = (str1: string, str2: string): number => {
-  const matrix = [];
-  
-  for (let i = 0; i <= str2.length; i++) {
-    matrix[i] = [i];
+// Case-insensitive keyword değeri alma fonksiyonu
+const getKeywordValue = (row: any): string => {
+  // Önce büyük K ile dene
+  if (row.Keyword !== undefined) {
+    return String(row.Keyword || '');
   }
-  
-  for (let j = 0; j <= str1.length; j++) {
-    matrix[0][j] = j;
+  // Sonra küçük k ile dene
+  if (row.keyword !== undefined) {
+    return String(row.keyword || '');
   }
-  
-  for (let i = 1; i <= str2.length; i++) {
-    for (let j = 1; j <= str1.length; j++) {
-      if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
-        matrix[i][j] = matrix[i - 1][j - 1];
-      } else {
-        matrix[i][j] = Math.min(
-          matrix[i - 1][j - 1] + 1,
-          matrix[i][j - 1] + 1,
-          matrix[i - 1][j] + 1
-        );
-      }
-    }
-  }
-  
-  return matrix[str2.length][str1.length];
+  // Hiçbiri yoksa boş string döndür
+  return '';
 };
 
 export const useAppStore = create<AppStore>((set, get) => ({
@@ -250,36 +228,6 @@ export const useAppStore = create<AppStore>((set, get) => ({
     }));
   },
   
-  addSimilarSearchTerm: (term) => {
-    set((state) => {
-      const normalizedTerm = term.toLowerCase().trim();
-      if (!normalizedTerm) return state;
-      
-      const exists = state.filters.similarSearchTerms.some(
-        (t) => t.toLowerCase() === normalizedTerm
-      );
-      
-      if (!exists) {
-        return {
-          filters: {
-            ...state.filters,
-            similarSearchTerms: [...state.filters.similarSearchTerms, term.trim()],
-          },
-        };
-      }
-      return state;
-    });
-  },
-  
-  removeSimilarSearchTerm: (term) => {
-    set((state) => ({
-      filters: {
-        ...state.filters,
-        similarSearchTerms: state.filters.similarSearchTerms.filter((t) => t !== term),
-      },
-    }));
-  },
-  
   setFilterNonLatin: (filter) => {
     set((state) => ({
       filters: {
@@ -331,62 +279,33 @@ export const useAppStore = create<AppStore>((set, get) => ({
     // Arama terimlerini uygula
     if (state.filters.searchTerms.length > 0) {
       filteredData = filteredData.filter((row) => {
-        const keyword = String(row.Keyword || '').toLowerCase();
-        return state.filters.searchTerms.some((term) =>
-          keyword.includes(term.toLowerCase())
-        );
+        const keyword = getKeywordValue(row).toLowerCase();
+        return state.filters.searchTerms.some((term) => {
+          const searchTerm = term.toLowerCase();
+          // Tam kelime eşleşmesi yap
+          const keywordWords = keyword.split(/\s+/);
+          return keywordWords.some(word => word === searchTerm);
+        });
       });
     }
     
     // Çıkarılacak terimleri uygula
     if (state.filters.excludeTerms.length > 0) {
       filteredData = filteredData.filter((row) => {
-        const keyword = String(row.Keyword || '').toLowerCase();
-        return !state.filters.excludeTerms.some((term) =>
-          keyword.includes(term.toLowerCase())
-        );
-      });
-    }
-    
-    // Benzer keyword arama terimlerini uygula
-    if (state.filters.similarSearchTerms.length > 0) {
-      const allKeywords = filteredData.map(row => String(row.Keyword || ''));
-      const similarKeywords = new Set<string>();
-      
-      // Her benzer arama terimi için keyword'leri bul
-      state.filters.similarSearchTerms.forEach(searchTerm => {
-        const searchWords = searchTerm.toLowerCase().split(/\s+/);
-        
-        allKeywords.forEach(keyword => {
-          const keywordWords = keyword.toLowerCase().split(/\s+/);
-          
-          // Semantic similarity check
-          const isSimilar = searchWords.some(searchWord => 
-            keywordWords.some(keywordWord => 
-              keywordWord.includes(searchWord) || 
-              searchWord.includes(keywordWord) ||
-              calculateSimilarity(searchWord, keywordWord) > 0.7
-            )
-          );
-          
-          if (isSimilar) {
-            similarKeywords.add(keyword);
-          }
+        const keyword = getKeywordValue(row).toLowerCase();
+        return !state.filters.excludeTerms.some((term) => {
+          const searchTerm = term.toLowerCase();
+          // Tam kelime eşleşmesi yap
+          const keywordWords = keyword.split(/\s+/);
+          return keywordWords.some(word => word === searchTerm);
         });
       });
-      
-      // Sadece benzer keyword'leri tut
-      if (similarKeywords.size > 0) {
-        filteredData = filteredData.filter(row => 
-          similarKeywords.has(String(row.Keyword || ''))
-        );
-      }
     }
     
     // Latin harici alfabeleri çıkar
     if (state.filters.filterNonLatin) {
       filteredData = filteredData.filter((row) => {
-        const keyword = String(row.Keyword || '');
+        const keyword = getKeywordValue(row);
         return /^[a-zA-Z0-9\s\-_.,!?()]+$/.test(keyword);
       });
     }
@@ -398,22 +317,59 @@ export const useAppStore = create<AppStore>((set, get) => ({
       });
     }
 
-    // Duplicates removal - aynı kategorideki duplicate keyword'lerde difficulty değeri düşük olanı çıkar
+    // Duplicates removal - Gelişmiş duplicate removal stratejileri
     if (state.filters.removeDuplicates) {
       const keywordMap = new Map<string, KeywordData>();
       
       filteredData.forEach(item => {
-        const keyword = String(item.Keyword || '').toLowerCase();
+        const keyword = getKeywordValue(item).toLowerCase();
         const category = String(item.Category || '');
-        const key = `${keyword}|${category}`;
+        
+        // Stratejiye göre key oluştur
+        let key: string;
+        switch (state.filters.duplicateRemovalStrategy) {
+          case 'none':
+            return; // Duplicate removal yapma
+          case 'same_category':
+            key = `${keyword}|${category}`; // Sadece aynı kategori içinde
+            break;
+          case 'all_duplicates':
+            key = keyword; // Tüm duplicate'leri çıkar (kategori fark etmez)
+            break;
+          case 'smart_removal':
+            key = `${keyword}|${category}`; // Akıllı removal
+            break;
+          default:
+            key = keyword;
+        }
         
         if (keywordMap.has(key)) {
-          // Aynı keyword ve kategori varsa, difficulty değeri yüksek olanı tut
+          // Duplicate bulundu, hangi kriteri kullanacağımızı belirle
           const existing = keywordMap.get(key)!;
-          const existingDifficulty = safeNumberConversion(existing.Difficulty);
-          const currentDifficulty = safeNumberConversion(item.Difficulty);
+          let shouldReplace = false;
           
-          if (currentDifficulty > existingDifficulty) {
+          if (state.filters.keepHighestDifficulty) {
+            const existingDifficulty = safeNumberConversion(existing.Difficulty);
+            const currentDifficulty = safeNumberConversion(item.Difficulty);
+            if (currentDifficulty > existingDifficulty) {
+              shouldReplace = true;
+            }
+          }
+          
+          if (state.filters.keepHighestVolume) {
+            const existingVolume = safeNumberConversion(existing.Volume);
+            const currentVolume = safeNumberConversion(item.Volume);
+            if (currentVolume > existingVolume) {
+              shouldReplace = true;
+            }
+          }
+          
+          // Eğer hiçbir kriter seçilmemişse, ilk geleni tut
+          if (!state.filters.keepHighestDifficulty && !state.filters.keepHighestVolume) {
+            shouldReplace = false; // Mevcut olanı tut
+          }
+          
+          if (shouldReplace) {
             keywordMap.set(key, item);
           }
         } else {
@@ -436,6 +392,63 @@ export const useAppStore = create<AppStore>((set, get) => ({
       filters: {
         ...state.filters,
         removeDuplicates: remove,
+      },
+    }));
+  },
+
+  addSimilarSearchTerm: (term) => {
+    set((state) => {
+      const normalizedTerm = term.toLowerCase().trim();
+      if (!normalizedTerm) return state;
+      
+      const exists = state.filters.similarSearchTerms.some(
+        (t) => t.toLowerCase() === normalizedTerm
+      );
+      
+      if (!exists) {
+        return {
+          filters: {
+            ...state.filters,
+            similarSearchTerms: [...state.filters.similarSearchTerms, term.trim()],
+          },
+        };
+      }
+      return state;
+    });
+  },
+  
+  removeSimilarSearchTerm: (term) => {
+    set((state) => ({
+      filters: {
+        ...state.filters,
+        similarSearchTerms: state.filters.similarSearchTerms.filter((t) => t !== term),
+      },
+    }));
+  },
+
+  setDuplicateRemovalStrategy: (strategy) => {
+    set((state) => ({
+      filters: {
+        ...state.filters,
+        duplicateRemovalStrategy: strategy,
+      },
+    }));
+  },
+
+  setKeepHighestDifficulty: (keep) => {
+    set((state) => ({
+      filters: {
+        ...state.filters,
+        keepHighestDifficulty: keep,
+      },
+    }));
+  },
+
+  setKeepHighestVolume: (keep) => {
+    set((state) => ({
+      filters: {
+        ...state.filters,
+        keepHighestVolume: keep,
       },
     }));
   },

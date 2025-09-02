@@ -29,6 +29,9 @@ export interface FilterState {
   filterNonLatin: boolean;
   nullHandling: 'zero' | 'null' | 'exclude'; // null değerleri nasıl işleyeceğimiz
   removeDuplicates: boolean; // Duplicate keyword'leri çıkar
+  duplicateRemovalStrategy: 'none' | 'same_category' | 'all_duplicates' | 'smart_removal'; // Duplicate removal stratejisi
+  keepHighestDifficulty: boolean; // Aynı kategoride difficulty yüksek olanı tut
+  keepHighestVolume: boolean; // Aynı kategoride volume yüksek olanı tut
 }
 
 export interface AppState {

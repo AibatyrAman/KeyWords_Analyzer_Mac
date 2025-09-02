@@ -4,33 +4,6 @@ import { KeywordData, TitleSubtitleData, ColumnInfo } from '../types';
 
 export class ExportUtils {
   /**
-   * Debug: Veri formatını kontrol et
-   */
-  static debugDataFormat(data: KeywordData[] | TitleSubtitleData[], columnInfo?: ColumnInfo[]): void {
-    if (data.length === 0) {
-      console.log('Debug: Veri boş');
-      return;
-    }
-    
-    const firstRow = data[0];
-    console.log('Debug: İlk satır veri tipleri:');
-    
-    Object.entries(firstRow).forEach(([key, value]) => {
-      const isNumeric = this.isNumericColumn(key, columnInfo);
-      console.log(`${key}: ${typeof value} = ${value} ${isNumeric ? '(sayısal sütun)' : ''}`);
-    });
-    
-    // Sayısal sütunların örnek değerlerini kontrol et
-    const numericColumns = Object.keys(firstRow).filter(key => this.isNumericColumn(key, columnInfo));
-    console.log('Debug: Sayısal sütunlar:', numericColumns);
-    
-    numericColumns.forEach(column => {
-      const values = data.slice(0, 5).map(row => row[column as keyof typeof row]);
-      console.log(`${column} örnek değerleri:`, values);
-    });
-  }
-  
-  /**
    * Excel dosyası oluştur ve indir
    */
   static exportToExcel(

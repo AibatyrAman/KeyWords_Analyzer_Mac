@@ -286,9 +286,17 @@ export class CsvProcessor {
     const allData: KeywordData[] = [];
     let allColumnInfo: ColumnInfo[] = [];
     
+    console.log('mergeWithDateData - folders:', folders);
+    
     for (const folder of folders) {
+      console.log('Processing folder:', folder);
+      console.log('First file webkitRelativePath:', folder[0]?.webkitRelativePath);
+      
       const folderName = folder[0]?.webkitRelativePath?.split('/')[0] || 'unknown';
       const dateInfo = folderName.split('_')[0];
+      
+      console.log('folderName:', folderName);
+      console.log('dateInfo:', dateInfo);
       
       for (const file of folder) {
         try {
@@ -327,6 +335,12 @@ export class CsvProcessor {
   static async processSingleCsvFile(file: File): Promise<{ data: KeywordData[], columnInfo: ColumnInfo[] }> {
     try {
       const rawData = await this.parseCsvFile(file);
+      
+      // Competitor keywords CSV'si için özel işleme
+      if (this.isCompetitorKeywordsFile(rawData)) {
+        return this.processCompetitorKeywordsFile(rawData, file);
+      }
+      
       const columnInfo = this.analyzeColumns(rawData);
       const processedData = this.processDataDynamically(rawData, columnInfo);
       
@@ -507,5 +521,133 @@ export class CsvProcessor {
     } else {
       return parts[parts.length - 1] || nameWithoutExt;
     }
+  }
+
+  /**
+   * Competitor keywords CSV dosyası olup olmadığını kontrol et
+   */
+  private static isCompetitorKeywordsFile(data: any[]): boolean {
+    if (data.length === 0) return false;
+    
+    const firstRow = data[0];
+    console.log('Checking if file is competitor keywords file. First row:', firstRow);
+    console.log('Available columns:', Object.keys(firstRow));
+    
+    const hasCompetitorColumns = 
+      'competitor_app_id' in firstRow && 
+      'competitor_title' in firstRow && 
+      'keyword' in firstRow && 
+      'volume' in firstRow && 
+      'score' in firstRow;
+    
+    console.log('Has competitor columns:', hasCompetitorColumns);
+    console.log('Column checks:', {
+      'competitor_app_id': 'competitor_app_id' in firstRow,
+      'competitor_title': 'competitor_title' in firstRow,
+      'keyword': 'keyword' in firstRow,
+      'volume': 'volume' in firstRow,
+      'score': 'score' in firstRow
+    });
+    
+    return hasCompetitorColumns;
+  }
+
+  /**
+   * Competitor keywords CSV dosyasını işle
+   */
+  private static processCompetitorKeywordsFile(rawData: any[], file: File): { data: KeywordData[], columnInfo: ColumnInfo[] } {
+    console.log('Processing competitor keywords file:', file.name);
+    console.log('Raw data first row:', rawData[0]);
+    
+    // Competitor keywords verisini KeywordData formatına dönüştür
+    const processedData: KeywordData[] = rawData.map((row, index) => {
+      const processedRow = {
+        Category: this.extractCategoryFromFileName(file.name),
+        Keyword: row.keyword || '',
+        Volume: this.convertToNumber(row.volume || 0),
+        Difficulty: this.convertToNumber(row.score || 0), // Score'u Difficulty olarak kullan
+        'Growth (Max Reach)': 0,
+        'Max. Reach': 0,
+        'No. of results': 0,
+        Date: new Date().toISOString().split('T')[0],
+        // Ek bilgileri sakla
+        competitor_app_id: row.competitor_app_id || '',
+        competitor_title: row.competitor_title || '',
+        ranking: row.ranking || 0,
+        is_typo: row.is_typo || false,
+        score: row.score || 0
+      };
+      
+      if (index < 3) {
+        console.log(`Processed row ${index}:`, processedRow);
+      }
+      
+      return processedRow;
+    });
+    
+    console.log('Total processed rows:', processedData.length);
+    console.log('Sample processed data:', processedData.slice(0, 3));
+
+    // Sütun bilgilerini oluştur
+    const columnInfo: ColumnInfo[] = [
+      {
+        name: 'Category',
+        type: 'string',
+        hasNulls: false
+      },
+      {
+        name: 'Keyword',
+        type: 'string',
+        hasNulls: false
+      },
+      {
+        name: 'Volume',
+        type: 'number',
+        hasNulls: false,
+        min: Math.min(...processedData.map(row => row.Volume)),
+        max: Math.max(...processedData.map(row => row.Volume))
+      },
+      {
+        name: 'Difficulty',
+        type: 'number',
+        hasNulls: false,
+        min: Math.min(...processedData.map(row => row.Difficulty)),
+        max: Math.max(...processedData.map(row => row.Difficulty))
+      },
+      {
+        name: 'competitor_app_id',
+        type: 'string',
+        hasNulls: false
+      },
+      {
+        name: 'competitor_title',
+        type: 'string',
+        hasNulls: false
+      },
+      {
+        name: 'ranking',
+        type: 'number',
+        hasNulls: false,
+        min: Math.min(...processedData.map(row => (row as any).ranking)),
+        max: Math.max(...processedData.map(row => (row as any).ranking))
+      },
+      {
+        name: 'is_typo',
+        type: 'boolean',
+        hasNulls: false
+      },
+      {
+        name: 'score',
+        type: 'number',
+        hasNulls: false,
+        min: Math.min(...processedData.map(row => (row as any).score)),
+        max: Math.max(...processedData.map(row => (row as any).score))
+      }
+    ];
+
+    return {
+      data: processedData.sort((a, b) => (b.Volume || 0) - (a.Volume || 0)),
+      columnInfo
+    };
   }
 } 

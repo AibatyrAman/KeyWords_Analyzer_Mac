@@ -92,8 +92,14 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFilesSelected }) => {
     const folders: Record<string, File[]> = {};
     
     files.forEach(file => {
+      console.log('File:', file.name);
+      console.log('webkitRelativePath:', (file as any).webkitRelativePath);
+      
       const pathParts = (file as any).webkitRelativePath?.split('/') || [file.name];
       const folderName = pathParts[0];
+      
+      console.log('pathParts:', pathParts);
+      console.log('folderName:', folderName);
       
       if (!folders[folderName]) {
         folders[folderName] = [];
@@ -101,6 +107,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFilesSelected }) => {
       folders[folderName].push(file);
     });
     
+    console.log('Final folders:', folders);
     return folders;
   };
 

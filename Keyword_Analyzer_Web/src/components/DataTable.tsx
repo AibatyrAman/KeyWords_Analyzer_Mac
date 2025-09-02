@@ -14,10 +14,6 @@ import {
   Stack,
   Button,
   TextField,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  Select,
 } from '@mui/material';
 import {
   Download,
@@ -47,7 +43,6 @@ export const DataTable: React.FC<DataTableProps> = ({ data, title }) => {
   } = useAppStore();
 
   const [exportFilename, setExportFilename] = useState('aso_keywords_data');
-  const [exportLocation, setExportLocation] = useState<'finder' | 'desktop' | 'project' | 'both'>('finder');
   const [matchedKeywordsDialog, setMatchedKeywordsDialog] = useState<{
     open: boolean;
     title: string;
@@ -358,20 +353,6 @@ export const DataTable: React.FC<DataTableProps> = ({ data, title }) => {
             sx={{ width: 150 }}
           />
           
-          <FormControl size="small" sx={{ minWidth: 120 }}>
-            <InputLabel>Kaydetme Yeri</InputLabel>
-            <Select
-              value={exportLocation}
-              label="Kaydetme Yeri"
-              onChange={(e) => setExportLocation(e.target.value as any)}
-            >
-              <MenuItem value="finder">🔍 Finder ile Seç</MenuItem>
-              <MenuItem value="desktop">🖥️ Masaüstü</MenuItem>
-              <MenuItem value="project">📁 Proje Klasörü</MenuItem>
-              <MenuItem value="both">📁 Her İkisi</MenuItem>
-            </Select>
-          </FormControl>
-          
           <Button
             variant="contained"
             startIcon={<Download />}
@@ -380,21 +361,6 @@ export const DataTable: React.FC<DataTableProps> = ({ data, title }) => {
           >
             📥 Excel İndir
           </Button>
-          
-          {/* Debug butonu - sadece development'ta görünür */}
-          {process.env.NODE_ENV === 'development' && (
-            <Button
-              variant="outlined"
-              size="small"
-              onClick={() => {
-                ExportUtils.debugDataFormat(processedData as any, columnInfo);
-                console.log('Debug: Export öncesi veri kontrol edildi');
-              }}
-              disabled={!processedData || processedData.length === 0}
-            >
-              🐛 Debug
-            </Button>
-          )}
         </Stack>
       </Box>
 

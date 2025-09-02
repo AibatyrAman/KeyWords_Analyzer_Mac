@@ -40,13 +40,26 @@ export const MatchedKeywordsDialog: React.FC<MatchedKeywordsDialogProps> = ({
   originalData,
 }) => {
   const findMatchingKeywords = (): MatchedKeyword[] => {
+    console.log('findMatchingKeywords called with:', { title, subtitle, originalDataLength: originalData?.length });
+    console.log('First few rows of originalData:', originalData?.slice(0, 3));
+    
     const titleWords = new Set(title?.toLowerCase().split(/\s+/) || []);
     const subtitleWords = new Set(subtitle?.toLowerCase().split(/\s+/) || []);
     const combinedWords = new Set(Array.from(titleWords).concat(Array.from(subtitleWords)));
     
+    console.log('Combined words:', Array.from(combinedWords));
+    
     const matchedKeywords: MatchedKeyword[] = [];
     
-    originalData.forEach(row => {
+    originalData.forEach((row, index) => {
+      console.log(`Processing row ${index}:`, row);
+      console.log(`Row.Keyword:`, row.Keyword);
+      
+      if (!row.Keyword) {
+        console.error(`Row ${index} has no Keyword property:`, row);
+        return;
+      }
+      
       const keywordWords = new Set(row.Keyword.toLowerCase().split(/\s+/));
       
       // Check if all keyword words are in combined words
@@ -65,6 +78,7 @@ export const MatchedKeywordsDialog: React.FC<MatchedKeywordsDialogProps> = ({
       }
     });
     
+    console.log('Matched keywords:', matchedKeywords);
     return matchedKeywords.sort((a, b) => b.volume - a.volume);
   };
 
