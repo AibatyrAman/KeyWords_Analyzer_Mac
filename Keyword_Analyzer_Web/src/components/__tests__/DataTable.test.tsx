@@ -52,8 +52,13 @@ describe('DataTable', () => {
       booleanFilters: {},
       searchTerms: [],
       excludeTerms: [],
+      similarSearchTerms: [],
       filterNonLatin: false,
-      nullHandling: 'zero' as const
+      nullHandling: 'zero' as const,
+      removeDuplicates: false,
+      duplicateRemovalStrategy: 'none' as const,
+      keepHighestDifficulty: false,
+      keepHighestVolume: false
     },
     setError: jest.fn(),
     setSuccess: jest.fn(),
@@ -96,6 +101,7 @@ describe('DataTable', () => {
     expect(screen.getByText('Veri bulunamadı')).toBeInTheDocument();
   });
 });
+
 
 
 

@@ -271,6 +271,139 @@ Return the most relevant keywords as a JSON array, ordered by relevance:
   }
 
   /**
+   * GPT ile girdiğiniz keyword ile alakalı tablodaki tüm keyword'leri bul
+   */
+  static async findRelatedKeywordsFromTable(
+    searchTerm: string,
+    tableData: KeywordData[],
+    maxResults: number = 100
+  ): Promise<KeywordData[]> {
+    try {
+      const availableKeywords = tableData.map(item => item.Keyword).filter(Boolean) as string[];
+      
+      const systemPrompt = `
+You are an expert in ASO (App Store Optimization) keyword analysis. Your task is to find ALL keywords from the provided list that are related to the search term for mobile app marketing.
+
+Your analysis should prioritize:
+1. **Direct Matches**: Keywords that exactly match or contain the search term
+2. **Semantic Similarity**: Keywords with similar meaning or concept in app context
+3. **Typo Detection**: Common misspellings and typos of the search term
+4. **App-Related Variations**: Keywords that are variations relevant to mobile apps
+5. **Contextual Relevance**: Keywords that make sense in mobile app context
+6. **Related Concepts**: Keywords that are conceptually related to the search term
+
+Analysis Rules:
+- Focus on mobile app and ASO relevance
+- Prioritize keywords that would be useful for app store optimization
+- Consider app categories, features, and user intent
+- Return only keywords that exist in the provided list
+- Return maximum ${maxResults} keywords
+- Return results as a JSON array of strings
+- Order by relevance (most relevant first)
+
+Examples:
+Search term: "weather"
+Good matches: "weather", "weather app", "weather forecast", "weather widget", "weather radar", "weather map", "climate", "temperature", "forecast"
+
+Search term: "photo"
+Good matches: "photo", "photo editor", "photo filter", "photo collage", "photo gallery", "photo manager", "camera", "image", "picture"
+
+Search term: "UV"
+Good matches: "UV", "UV index", "UV protection", "UV monitor", "UV tracker", "UV app", "sun", "ultraviolet", "skin cancer", "sunscreen"
+`;
+
+      const userPrompt = `
+Search term: "${searchTerm}"
+
+Available keywords to search within (${availableKeywords.length} total):
+${availableKeywords.join(', ')}
+
+Please analyze the search term "${searchTerm}" and find ALL related keywords from the above list for mobile app ASO purposes.
+
+Focus on:
+- Exact matches and variations
+- App-related keywords that make sense in mobile context
+- Keywords that would be useful for app store optimization
+- Relevant typos and misspellings
+- Semantically related terms in app context
+- Conceptually related keywords
+
+Return the most relevant keywords as a JSON array, ordered by relevance (most relevant first):
+`;
+
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${OPENAI_API_KEY}`
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt }
+          ],
+          temperature: 0.2,
+          max_tokens: 2000
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('OpenAI API error:', response.status, errorText);
+        throw new Error(`OpenAI API hatası: ${response.status}. Lütfen tekrar deneyin.`);
+      }
+
+      const result = await response.json();
+      
+      if (!result.choices || !result.choices[0] || !result.choices[0].message || !result.choices[0].message.content) {
+        console.error('Invalid OpenAI response:', result);
+        throw new Error('OpenAI API yanıtı geçersiz. Lütfen tekrar deneyin.');
+      }
+      
+      const answer = result.choices[0].message.content.trim();
+      
+      let relatedKeywords: string[] = [];
+      try {
+        // Extract JSON from response
+        const jsonMatch = answer.match(/\[.*\]/);
+        if (jsonMatch) {
+          relatedKeywords = JSON.parse(jsonMatch[0]);
+        } else {
+          relatedKeywords = JSON.parse(answer);
+        }
+        
+        // Validate that all returned keywords exist in the original list
+        relatedKeywords = relatedKeywords.filter(keyword => 
+          availableKeywords.includes(keyword)
+        );
+        
+        // Limit to maxResults
+        relatedKeywords = relatedKeywords.slice(0, maxResults);
+        
+      } catch (parseError) {
+        console.error('Error parsing related keywords response:', parseError);
+        // Fallback: use enhanced string matching
+        relatedKeywords = this.enhancedFallbackSimilarKeywords(searchTerm, availableKeywords, maxResults);
+      }
+
+      // Return the actual KeywordData objects
+      return tableData.filter(item => 
+        relatedKeywords.includes(item.Keyword)
+      );
+
+    } catch (error) {
+      console.error('Error finding related keywords:', error);
+      // Fallback to enhanced matching if API fails
+      const availableKeywords = tableData.map(item => item.Keyword).filter(Boolean) as string[];
+      const fallbackKeywords = this.enhancedFallbackSimilarKeywords(searchTerm, availableKeywords, maxResults);
+      return tableData.filter(item => 
+        fallbackKeywords.includes(item.Keyword)
+      );
+    }
+  }
+
+  /**
    * Mevcut keyword'lerden benzer olanları filtrele
    */
   static filterBySimilarKeywords(

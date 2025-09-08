@@ -22,6 +22,7 @@ import {
 import { useAppStore } from '../store';
 import { KeywordData, TitleSubtitleData } from '../types';
 import { ExportUtils } from '../utils/exportUtils';
+import { SimilarKeywordFinder } from '../utils/similarKeywordFinder';
 import { MatchedKeywordsDialog } from './MatchedKeywordsDialog';
 
 interface DataTableProps {
@@ -154,6 +155,18 @@ export const DataTable: React.FC<DataTableProps> = ({ data, title }) => {
         return !filters.excludeTerms.some(term => {
           const termLower = term.toLowerCase();
           return keyword.includes(termLower)
+        });
+      });
+    }
+
+    // Similar keyword filtreleri
+    if (filters.similarSearchTerms.length > 0) {
+      filteredData = filteredData.filter(row => {
+        if (isTitleSubtitleData(row)) return true; // Skip filtering for TitleSubtitleData
+        const keyword = String((row as KeywordData).Keyword || '').toLowerCase();
+        return filters.similarSearchTerms.some(term => {
+          const termLower = term.toLowerCase();
+          return keyword.includes(termLower) || termLower.includes(keyword);
         });
       });
     }

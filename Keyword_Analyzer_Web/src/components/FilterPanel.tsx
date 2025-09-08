@@ -29,6 +29,7 @@ import {
 } from '@mui/icons-material';
 import { useAppStore } from '../store';
 import { KeywordData, ColumnInfo } from '../types';
+import { SimilarKeywordFinder } from '../utils/similarKeywordFinder';
 
 interface FilterPanelProps {
   data: KeywordData[] | null;
@@ -62,11 +63,16 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({ data, columnInfo }) =>
   // Geçici filtre state'leri
   const [tempSearchTerms, setTempSearchTerms] = useState<string[]>([]);
   const [tempExcludeTerms, setTempExcludeTerms] = useState<string[]>([]);
+  const [tempSimilarSearchTerms, setTempSimilarSearchTerms] = useState<string[]>([]);
   const [tempFilterNonLatin, setTempFilterNonLatin] = useState(false);
   const [tempRemoveDuplicates, setTempRemoveDuplicates] = useState(false);
   const [tempColumnFilters, setTempColumnFilters] = useState<Record<string, { min: number; max: number }>>({});
   const [tempBooleanFilters, setTempBooleanFilters] = useState<Record<string, boolean | null>>({});
   const [tempNullHandling, setTempNullHandling] = useState<'zero' | 'null' | 'exclude'>('zero');
+  
+  // Similar keyword state'leri
+  const [similarKeywordInput, setSimilarKeywordInput] = useState('');
+  const [isFindingSimilar, setIsFindingSimilar] = useState(false);
 
   // Dinamik sütun filtrelerini oluştur
   useEffect(() => {
@@ -95,6 +101,7 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({ data, columnInfo }) =>
   useEffect(() => {
     setTempSearchTerms(filters.searchTerms);
     setTempExcludeTerms(filters.excludeTerms);
+    setTempSimilarSearchTerms(filters.similarSearchTerms);
     setTempFilterNonLatin(filters.filterNonLatin);
     setTempRemoveDuplicates(filters.removeDuplicates);
     setTempBooleanFilters(filters.booleanFilters);
@@ -134,10 +141,43 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({ data, columnInfo }) =>
     setTempExcludeTerms(tempExcludeTerms.filter(t => t !== term));
   };
 
+  const handleFindSimilarKeywords = async () => {
+    if (!similarKeywordInput.trim() || !data || data.length === 0) return;
+    
+    setIsFindingSimilar(true);
+    try {
+      // GPT ile tablodaki tüm alakalı keyword'leri bul
+      const relatedKeywordData = await SimilarKeywordFinder.findRelatedKeywordsFromTable(
+        similarKeywordInput.trim(),
+        data,
+        100 // Max 100 related keywords
+      );
+      
+      // Keyword'leri string array'e çevir
+      const relatedKeywords = relatedKeywordData.map(item => item.Keyword).filter(Boolean) as string[];
+      
+      // Yeni keyword'leri temp state'e ekle
+      const newSimilarTerms = relatedKeywords.filter(keyword => 
+        !tempSimilarSearchTerms.includes(keyword)
+      );
+      setTempSimilarSearchTerms([...tempSimilarSearchTerms, ...newSimilarTerms]);
+      
+    } catch (error) {
+      console.error('Error finding related keywords:', error);
+    } finally {
+      setIsFindingSimilar(false);
+    }
+  };
+
+  const handleRemoveSimilarSearchTerm = (term: string) => {
+    setTempSimilarSearchTerms(tempSimilarSearchTerms.filter(t => t !== term));
+  };
+
   const handleApplyFilters = () => {
     // Geçici filtreleri gerçek filtrelere uygula
     tempSearchTerms.forEach(term => addSearchTerm(term));
     tempExcludeTerms.forEach(term => addExcludeTerm(term));
+    tempSimilarSearchTerms.forEach(term => addSimilarSearchTerm(term));
     setFilterNonLatin(tempFilterNonLatin);
     setRemoveDuplicates(tempRemoveDuplicates);
     setNullHandling(tempNullHandling);
@@ -159,6 +199,7 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({ data, columnInfo }) =>
   const handleClearFilters = () => {
     setTempSearchTerms([]);
     setTempExcludeTerms([]);
+    setTempSimilarSearchTerms([]);
     setTempFilterNonLatin(false);
     setTempRemoveDuplicates(false);
     setTempColumnFilters({});
@@ -361,6 +402,67 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({ data, columnInfo }) =>
                 </Stack>
               </Box>
             )}
+          </Stack>
+        </AccordionDetails>
+      </Accordion>
+
+      {/* Similar Keyword Arama */}
+      <Accordion defaultExpanded>
+        <AccordionSummary expandIcon={<ExpandMore />}>
+          <Typography>Benzer Keyword Arama (AI)</Typography>
+        </AccordionSummary>
+        <AccordionDetails>
+          <Stack spacing={2}>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <TextField
+                fullWidth
+                size="small"
+                placeholder="Örn: weather, photo, music"
+                value={similarKeywordInput}
+                onChange={(e) => setSimilarKeywordInput(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleFindSimilarKeywords()}
+                disabled={isFindingSimilar}
+              />
+              <Button
+                variant="contained"
+                size="small"
+                onClick={handleFindSimilarKeywords}
+                disabled={isFindingSimilar || !similarKeywordInput.trim() || !data || data.length === 0}
+                startIcon={<Add />}
+              >
+                {isFindingSimilar ? 'BULUYOR...' : 'BENZER BUL'}
+              </Button>
+            </Box>
+
+            {tempSimilarSearchTerms.length > 0 && (
+              <Box>
+                <Typography variant="body2" sx={{ mb: 1 }}>
+                  Bulunan Benzer Keywords ({tempSimilarSearchTerms.length}):
+                </Typography>
+                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                  {tempSimilarSearchTerms.map((term) => (
+                    <Chip
+                      key={term}
+                      label={term}
+                      onDelete={() => handleRemoveSimilarSearchTerm(term)}
+                      size="small"
+                      color="secondary"
+                    />
+                  ))}
+                </Stack>
+              </Box>
+            )}
+
+            <Alert severity="info">
+              <Typography variant="body2">
+                <strong>AI Benzer Keyword Arama:</strong><br/>
+                • GPT-4 ile tablodaki tüm alakalı keyword'leri bulur<br/>
+                • Semantik benzerlik, typo detection, ilgili kavramlar<br/>
+                • ASO odaklı analiz (app store optimization)<br/>
+                • Maksimum 100 alakalı keyword döndürür<br/>
+                • Sadece mevcut tablodaki keyword'ler arasından seçer
+              </Typography>
+            </Alert>
           </Stack>
         </AccordionDetails>
       </Accordion>
