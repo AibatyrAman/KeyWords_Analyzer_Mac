@@ -92,4 +92,18 @@ export interface TitleSubtitleData {
   Average_Difficulty?: number;
   Matched_Keywords_Count?: number;
   [key: string]: any; // Dinamik sütunlar için
+}
+
+// AI Keyword Analysis Interfaces
+export interface AnalyzedKeywordData extends KeywordData {
+  category: string;
+  reason: string;
+  relevanceScore: number; // 1-100 arası bir skor
+}
+
+export interface KeywordAnalysisResult {
+  keyword: string;
+  category: string;
+  reason: string;
+  relevanceScore: number;
 } 

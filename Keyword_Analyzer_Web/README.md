@@ -18,6 +18,16 @@ Proje ana dizininde `.env` dosyası oluşturun:
 cp env.example .env
 ```
 
+#### API Key Ayarlama
+`.env` dosyasını açın ve OpenAI API key'inizi ekleyin:
+
+```bash
+# OpenAI API Configuration
+REACT_APP_OPENAI_API_KEY=sk-proj-your_actual_api_key_here
+```
+
+**Önemli:** Gerçek API key'inizi `env.example` dosyasına eklemeyin!
+
 #### API Key Ekleme
 `.env` dosyasını düzenleyin ve OpenAI API key'inizi ekleyin:
 

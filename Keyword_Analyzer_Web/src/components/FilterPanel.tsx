@@ -28,7 +28,7 @@ import {
   FilterList,
 } from '@mui/icons-material';
 import { useAppStore } from '../store';
-import { KeywordData, ColumnInfo } from '../types';
+import { KeywordData, ColumnInfo, AnalyzedKeywordData } from '../types';
 import { SimilarKeywordFinder } from '../utils/similarKeywordFinder';
 
 interface FilterPanelProps {
@@ -73,6 +73,11 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({ data, columnInfo }) =>
   // Similar keyword state'leri
   const [similarKeywordInput, setSimilarKeywordInput] = useState('');
   const [isFindingSimilar, setIsFindingSimilar] = useState(false);
+  const [analyzedKeywords, setAnalyzedKeywords] = useState<AnalyzedKeywordData[]>([]);
+  
+  // AI Keyword Analysis Settings
+  const [maxResults, setMaxResults] = useState(100);
+  const [similarityThreshold, setSimilarityThreshold] = useState(0.8);
 
   // Dinamik sütun filtrelerini oluştur
   useEffect(() => {
@@ -146,15 +151,19 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({ data, columnInfo }) =>
     
     setIsFindingSimilar(true);
     try {
-      // GPT ile tablodaki tüm alakalı keyword'leri bul
-      const relatedKeywordData = await SimilarKeywordFinder.findRelatedKeywordsFromTable(
+      // GPT ile tablodaki tüm alakalı keyword'leri bul (kategorize edilmiş)
+      const analyzedResults = await SimilarKeywordFinder.findRelatedKeywordsFromTable(
         similarKeywordInput.trim(),
         data,
-        100 // Max 100 related keywords
+        maxResults, // Kullanıcının ayarladığı max results
+        similarityThreshold // Kullanıcının ayarladığı similarity threshold
       );
       
-      // Keyword'leri string array'e çevir
-      const relatedKeywords = relatedKeywordData.map(item => item.Keyword).filter(Boolean) as string[];
+      // Analyzed results'ı state'e kaydet
+      setAnalyzedKeywords(analyzedResults);
+      
+      // Keyword'leri string array'e çevir ve temp state'e ekle
+      const relatedKeywords = analyzedResults.map(item => item.Keyword).filter(Boolean) as string[];
       
       // Yeni keyword'leri temp state'e ekle
       const newSimilarTerms = relatedKeywords.filter(keyword => 
@@ -200,6 +209,7 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({ data, columnInfo }) =>
     setTempSearchTerms([]);
     setTempExcludeTerms([]);
     setTempSimilarSearchTerms([]);
+    setAnalyzedKeywords([]);
     setTempFilterNonLatin(false);
     setTempRemoveDuplicates(false);
     setTempColumnFilters({});
@@ -413,6 +423,43 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({ data, columnInfo }) =>
         </AccordionSummary>
         <AccordionDetails>
           <Stack spacing={2}>
+            {/* AI Analysis Settings */}
+            <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+              <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 'bold' }}>
+                ⚙️ AI Analiz Ayarları
+              </Typography>
+              <Stack direction="row" spacing={2}>
+                <Box sx={{ flex: 1 }}>
+                  <TextField
+                    fullWidth
+                    label="Max Sonuç Sayısı"
+                    type="number"
+                    value={maxResults}
+                    onChange={(e) => setMaxResults(Math.max(1, parseInt(e.target.value) || 100))}
+                    size="small"
+                    helperText="GPT'den dönecek maksimum keyword sayısı (1-500)"
+                    inputProps={{ min: 1, max: 500 }}
+                  />
+                </Box>
+                <Box sx={{ flex: 1 }}>
+                  <TextField
+                    fullWidth
+                    label="Benzerlik Eşiği"
+                    type="number"
+                    value={similarityThreshold}
+                    onChange={(e) => setSimilarityThreshold(Math.max(0.1, Math.min(1.0, parseFloat(e.target.value) || 0.8)))}
+                    size="small"
+                    helperText="Keyword eşleşme hassasiyeti (0.1-1.0)"
+                    inputProps={{ min: 0.1, max: 1.0, step: 0.1 }}
+                  />
+                </Box>
+              </Stack>
+              <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                💡 <strong>Max Sonuç:</strong> Daha yüksek değer = daha fazla keyword, daha yavaş analiz<br/>
+                💡 <strong>Benzerlik Eşiği:</strong> Daha düşük değer = daha esnek eşleşme, daha fazla sonuç
+              </Typography>
+            </Box>
+
             <Box sx={{ display: 'flex', gap: 1 }}>
               <TextField
                 fullWidth
@@ -434,33 +481,52 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({ data, columnInfo }) =>
               </Button>
             </Box>
 
-            {tempSimilarSearchTerms.length > 0 && (
+            {analyzedKeywords.length > 0 && (
               <Box>
                 <Typography variant="body2" sx={{ mb: 1 }}>
-                  Bulunan Benzer Keywords ({tempSimilarSearchTerms.length}):
+                  Bulunan Benzer Keywords ({analyzedKeywords.length}):
                 </Typography>
-                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                  {tempSimilarSearchTerms.map((term) => (
-                    <Chip
-                      key={term}
-                      label={term}
-                      onDelete={() => handleRemoveSimilarSearchTerm(term)}
-                      size="small"
-                      color="secondary"
-                    />
-                  ))}
-                </Stack>
+                
+                {/* Kategorilere göre gruplandır */}
+                {Object.entries(
+                  analyzedKeywords.reduce((acc, item) => {
+                    if (!acc[item.category]) {
+                      acc[item.category] = [];
+                    }
+                    acc[item.category].push(item);
+                    return acc;
+                  }, {} as Record<string, AnalyzedKeywordData[]>)
+                ).map(([category, keywords]) => (
+                  <Box key={category} sx={{ mb: 2 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1, color: 'primary.main' }}>
+                      {category} ({keywords.length})
+                    </Typography>
+                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                      {keywords.map((item) => (
+                        <Chip
+                          key={item.Keyword}
+                          label={`${item.Keyword} (${item.relevanceScore})`}
+                          onDelete={() => handleRemoveSimilarSearchTerm(item.Keyword)}
+                          size="small"
+                          color="secondary"
+                          title={item.reason}
+                        />
+                      ))}
+                    </Stack>
+                  </Box>
+                ))}
               </Box>
             )}
 
             <Alert severity="info">
               <Typography variant="body2">
                 <strong>AI Benzer Keyword Arama:</strong><br/>
-                • GPT-4 ile tablodaki tüm alakalı keyword'leri bulur<br/>
+                • GPT-4 ile kategorize edilmiş, açıklanmış ve puanlanmış sonuçlar<br/>
                 • Semantik benzerlik, typo detection, ilgili kavramlar<br/>
                 • ASO odaklı analiz (app store optimization)<br/>
-                • Maksimum 100 alakalı keyword döndürür<br/>
-                • Sadece mevcut tablodaki keyword'ler arasından seçer
+                • Kategoriler: Education, AI & Technology, Entertainment, vb.<br/>
+                • Her keyword için relevance score (1-100) ve açıklama<br/>
+                • Maksimum 100 alakalı keyword döndürür
               </Typography>
             </Alert>
           </Stack>

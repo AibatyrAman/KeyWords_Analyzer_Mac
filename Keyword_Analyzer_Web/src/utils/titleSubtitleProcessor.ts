@@ -1,7 +1,7 @@
 import { KeywordData, TitleSubtitleData } from '../types';
 
 // OpenAI API configuration
-const OPENAI_API_KEY = "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";
+const OPENAI_API_KEY = process.env.REACT_APP_OPENAI_API_KEY;
 
 // Banned words list
 const BANNED_WORDS = [
